@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GALLERY</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1c1c28;
+            --border: rgba(255,255,255,0.07);
+            --accent: #c8a96e;
+            --accent2: #7c6fcd;
+            --text: #e8e6df;
+            --text-muted: #6b6880;
+            --radius: 10px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 32px 24px 80px;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background glow */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -30%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 500px;
+            background: radial-gradient(ellipse, rgba(124,111,205,0.07) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Header ── */
+        .header {
+            max-width: 1040px;
+            margin: 0 auto 28px;
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            animation: slideDown 0.6s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--text);
+        }
+        .header .sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+        .header .count-badge {
+            margin-left: auto;
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 0.12em;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .header .count-badge.visible { opacity: 1; }
+
+        /* ── Input Panel ── */
+        .input-panel {
+            max-width: 1040px;
+            margin: 0 auto 32px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            position: relative;
+            z-index: 1;
+            animation: slideDown 0.7s cubic-bezier(0.16,1,0.3,1) 0.05s both;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .input-panel:focus-within {
+            border-color: rgba(200,169,110,0.3);
+            box-shadow: 0 0 0 4px rgba(200,169,110,0.05), 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .panel-label {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 68px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            padding: 10px 12px;
+            resize: vertical;
+            outline: none;
+            display: block;
+            transition: border-color 0.2s;
+        }
+        textarea::placeholder { color: var(--text-muted); }
+        textarea:focus { border-color: rgba(200,169,110,0.25); }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            height: 34px;
+            padding: 0 18px;
+            border-radius: 5px;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.15s, opacity 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-display {
+            background: linear-gradient(135deg, #c8a96e, #b8934a);
+            color: #0a0a0f;
+            font-weight: 500;
+        }
+        .btn-display:hover { box-shadow: 0 4px 16px rgba(200,169,110,0.35); }
+        .btn-clear {
+            background: var(--surface2);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-clear:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+        .key-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: auto;
+            display: flex;
+            gap: 14px;
+        }
+        .key-hint kbd {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* ── Gallery Grid ── */
+        #gallery {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-width: 1040px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .gallery-card {
+            aspect-ratio: 3 / 4;
+            background: var(--surface);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            border: 1px solid var(--border);
+            opacity: 0;
+            transform: translateY(16px) scale(0.97);
+            transition: transform 0.3s cubic-bezier(0.2,0,0,1), box-shadow 0.3s, opacity 0.3s, border-color 0.3s;
+        }
+        .gallery-card.loaded {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .gallery-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(200,169,110,0.2);
+            z-index: 2;
+            border-color: rgba(200,169,110,0.25);
+        }
+
+        .gallery-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* shimmer loader */
+        .gallery-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, var(--surface) 0%, var(--surface2) 50%, var(--surface) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            z-index: 1;
+            transition: opacity 0.4s;
+        }
+        .gallery-card.loaded::before { opacity: 0; pointer-events: none; }
+
+        .card-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 2;
+        }
+        .gallery-card:hover .card-overlay { opacity: 1; }
+
+        .card-index {
+            position: absolute;
+            bottom: 10px;
+            left: 12px;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            color: rgba(255,255,255,0.6);
+            z-index: 3;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .gallery-card:hover .card-index { opacity: 1; transform: translateY(0); }
+
+        /* ── Per-card download button ── */
+        .card-dl-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 4;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(200,169,110,0.9);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.25s, transform 0.25s, background 0.2s;
+            color: #0a0a0f;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .gallery-card:hover .card-dl-btn {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .card-dl-btn:hover {
+            background: rgba(220,190,130,1) !important;
+        }
+        .card-dl-btn:active { transform: scale(0.93) !important; }
+
+        /* ── Download All button ── */
+        .btn-dl-all {
+            background: var(--surface2);
+            color: var(--accent);
+            border: 1px solid rgba(200,169,110,0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .btn-dl-all:hover {
+            border-color: rgba(200,169,110,0.6);
+            box-shadow: 0 4px 16px rgba(200,169,110,0.12);
+            color: #e8c87a;
+        }
+
+        .btn-browse-files, .btn-browse-folder {
+            background: var(--surface2);
+            color: var(--accent2);
+            border: 1px solid rgba(124,111,205,0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .btn-browse-files:hover, .btn-browse-folder:hover {
+            border-color: rgba(124,111,205,0.6);
+            box-shadow: 0 4px 16px rgba(124,111,205,0.15);
+            color: #a89ee8;
+        }
+
+        /* ── Download progress toast ── */
+        #dlToast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(12px);
+            background: var(--surface2);
+            border: 1px solid rgba(200,169,110,0.25);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s, transform 0.25s;
+            z-index: 2000;
+            white-space: nowrap;
+        }
+        #dlToast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 700px) { #gallery { grid-template-columns: repeat(2, 1fr); } }
+
+        /* ── Empty state ── */
+        .empty-state {
+            grid-column: 1 / -1;
+            padding: 80px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            animation: fadeIn 0.5s both;
+        }
+        .empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
+
+        /* ── Lightbox ── */
+        #lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5,5,10,0.97);
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            animation: lbIn 0.25s cubic-bezier(0.2,0,0,1) both;
+        }
+        #lightbox.closing {
+            animation: lbOut 0.2s cubic-bezier(0.4,0,1,1) both;
+        }
+
+        #imgContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: default;
+            touch-action: none;
+            position: absolute;
+            inset: 0;
+        }
+
+        #lightboxImg {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform 0.22s cubic-bezier(0.2,0,0,1), opacity 0.18s;
+            transform-origin: center center;
+        }
+        #lightboxImg.switching {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        .lb-control {
+            color: white;
+            cursor: pointer;
+            position: absolute;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 50%;
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1005;
+            font-size: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease, background 0.2s;
+            user-select: none;
+        }
+        .lb-control.controls-visible {
+            opacity: 0.65;
+            pointer-events: auto;
+        }
+        .lb-control:hover { opacity: 1 !important; background: rgba(255,255,255,0.16); }
+        #closeBtn { top: 22px; right: 26px; }
+        #prevBtn  { left: 22px; top: 50%; transform: translateY(-50%); }
+        #nextBtn  { right: 22px; top: 50%; transform: translateY(-50%); }
+
+        /* Counter — top-left, above the image in the black letterbox zone */
+        #lbCounter {
+            position: absolute;
+            top: 22px;
+            left: 26px;
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            color: rgba(255,255,255,0.65);
+            font-family: 'DM Mono', monospace;
+            pointer-events: none;
+            z-index: 1010;
+        }
+
+        #zoomBar {
+            display: none;
+            position: absolute;
+            bottom: 90px;
+            right: 26px;
+            z-index: 1006;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 6px;
+            border-radius: 20px;
+            backdrop-filter: blur(12px);
+        }
+        #zoomSlider {
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
+            appearance: slider-vertical;
+            width: 6px;
+            height: 120px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+        .zoom-label { color: rgba(255,255,255,0.5); font-size: 14px; user-select: none; }
+
+        /* ── Animations ── */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes lbIn {
+            from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes lbOut {
+            from { opacity: 1; } to { opacity: 0; }
+        }
+        @keyframes popIn {
+            0%   { transform: scale(0.92); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Gallery</h1>
+    <span class="sub">URL &amp; Local Image Viewer</span>
+    <span class="count-badge" id="countBadge"></span>
+</div>
+
+<div class="input-panel">
+    <div class="panel-label">Paste image URLs or local file / folder paths — one per line</div>
+    <textarea id="urlInput" placeholder="https://example.com/image.jpg"></textarea>
+    <div class="btn-row">
+        <button class="btn btn-display" onclick="renderGallery()">Display</button>
+        <button class="btn btn-clear" onclick="clearAll()">Clear</button>
+        <button class="btn btn-browse-files" id="browseFilesBtn" onclick="browseLocalFiles()" title="Pick individual image files from your PC">📂 Files</button>
+        <button class="btn btn-browse-folder" id="browseFolderBtn" onclick="browseLocalFolder()" title="Pick a folder — all images inside will be loaded">📁 Folder</button>
+        <button class="btn btn-dl-all" id="dlAllBtn" onclick="downloadAll()" style="display:none;">Download All</button>
+        <div class="key-hint">
+            <span><kbd>↵ Enter</kbd> display</span>
+            <span><kbd>C</kbd> clear</span>
+        </div>
+    </div>
+    <!-- hidden file inputs for fallback -->
+    <input type="file" id="filePickerInput" accept="image/*" multiple style="display:none" onchange="handleFileInputChange(event)">
+    <input type="file" id="folderPickerInput" accept="image/*" multiple webkitdirectory style="display:none" onchange="handleFileInputChange(event)">
+</div>
+
+<div id="gallery"></div>
+<div id="dlToast"></div>
+
+<div id="lightbox">
+    <span id="lbCounter"></span>
+    <button id="closeBtn" class="lb-control" onclick="closeLightbox()">✕</button>
+    <button id="prevBtn" class="lb-control" onclick="changeImage(-1)">‹</button>
+
+    <div id="imgContainer"
+         onmousedown="startPanning(event)"
+         onmousemove="doPanning(event)"
+         onmouseup="stopPanning()"
+         ondblclick="handleDoubleTap(event)">
+        <img id="lightboxImg" src="" alt="Full view">
+    </div>
+
+    <button id="nextBtn" class="lb-control" onclick="changeImage(1)">›</button>
+
+    <div id="zoomBar">
+        <span class="zoom-label">+</span>
+        <input type="range" id="zoomSlider" min="1" max="10" step="0.1" value="1" oninput="applyZoom()">
+        <span class="zoom-label">−</span>
+    </div>
+</div>
+
+<script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    let currentImages = [];
+    let currentIndex  = 0;
+    let uiTimeout;
+    let scale = 1, isPanning = false;
+    let startX, startY, translateX = 0, translateY = 0;
+    const panStep = 80;
+
+    const lightbox     = document.getElementById('lightbox');
+    const lightboxImg  = document.getElementById('lightboxImg');
+    const zoomBar      = document.getElementById('zoomBar');
+    const zoomSlider   = document.getElementById('zoomSlider');
+    const imgContainer = document.getElementById('imgContainer');
+    const lbCounter    = document.getElementById('lbCounter');
+    const countBadge   = document.getElementById('countBadge');
+    const textarea     = document.getElementById('urlInput');
+    const allControls  = () => document.querySelectorAll('.lb-control');
+
+    // ─── Control visibility ───────────────────────────────────────────────────
+    let hoveredControl = false;
+    let uiLocked = false;   // true = H pressed, controls stay hidden
+
+    function showControls() {
+        if (scale > 1) return;
+        if (uiLocked) return;
+        allControls().forEach(el => el.classList.add('controls-visible'));
+        lbCounter.style.opacity = '1';
+        clearTimeout(uiTimeout);
+        uiTimeout = setTimeout(() => {
+            if (!hoveredControl) hideControls();
+        }, 3000);
+    }
+
+    function hideControls() {
+        allControls().forEach(el => el.classList.remove('controls-visible'));
+        lbCounter.style.opacity = '0';
+    }
+
+    function toggleUILock() {
+        uiLocked = !uiLocked;
+        clearTimeout(uiTimeout);
+        if (uiLocked) {
+            hideControls();
+        } else {
+            allControls().forEach(el => el.classList.add('controls-visible'));
+            lbCounter.style.opacity = '1';
+            uiTimeout = setTimeout(() => {
+                if (!hoveredControl) hideControls();
+            }, 3000);
+        }
+    }
+
+    // Attach hover listeners to each control so hovering pauses the timer
+    function attachControlHoverListeners() {
+        allControls().forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                hoveredControl = true;
+                clearTimeout(uiTimeout);
+                // ensure visible while hovered
+                el.classList.add('controls-visible');
+            });
+            el.addEventListener('mouseleave', () => {
+                hoveredControl = false;
+                // restart the hide timer from now
+                clearTimeout(uiTimeout);
+                uiTimeout = setTimeout(hideControls, 3000);
+            });
+        });
+    }
+
+    // ─── Thumbnail Canvas Downsizing ─────────────────────────────────────────
+    const THUMB_MAX = 400; // max px for thumbnail dimension
+
+    function createThumbnail(url, callback) {
+        const img = new Image();
+        // Only set crossOrigin for remote HTTP(S) URLs — local/blob don't need it
+        // and setting it on file:/// URLs causes load failures in some browsers
+        if (/^https?:\/\//i.test(url)) {
+            img.crossOrigin = 'anonymous';
+        }
+        img.onload = () => {
+            try {
+                const ratio  = Math.min(THUMB_MAX / img.naturalWidth, THUMB_MAX / img.naturalHeight, 1);
+                const w = Math.round(img.naturalWidth  * ratio);
+                const h = Math.round(img.naturalHeight * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                callback(canvas.toDataURL('image/jpeg', 0.80));
+            } catch(e) {
+                // CORS fallback — just use the original URL
+                callback(url);
+            }
+        };
+        img.onerror = () => callback(null);
+        img.src = url;
+    }
+
+    // ─── Download helpers ─────────────────────────────────────────────────────
+    const dlToast  = document.getElementById('dlToast');
+    const dlAllBtn = document.getElementById('dlAllBtn');
+    let toastTimer;
+
+    function showToast(msg) {
+        dlToast.textContent = msg;
+        dlToast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => dlToast.classList.remove('show'), 2800);
+    }
+
+    function filenameFromUrl(url, index) {
+        // local blob URL
+        if (url.startsWith('blob:')) {
+            return localFileNames[url] || `image-${index + 1}.jpg`;
+        }
+        // file:/// local path
+        if (url.startsWith('file:///')) {
+            try {
+                const decoded = decodeURIComponent(url.replace('file:///', '').replace(/\//g, '\\'));
+                const parts = decoded.split(/[/\\]/);
+                const name = parts.pop();
+                return name && name.includes('.') ? name : `image-${index + 1}.jpg`;
+            } catch { return `image-${index + 1}.jpg`; }
+        }
+        try {
+            const path = new URL(url).pathname;
+            const name = path.split('/').pop().split('?')[0];
+            return name && name.includes('.') ? name : `image-${index + 1}.jpg`;
+        } catch {
+            return `image-${index + 1}.jpg`;
+        }
+    }
+
+    // ─── Local Path & Browse Support ─────────────────────────────────────────
+    // Map blob URLs → original filenames (for download naming)
+    const localFileNames = {};
+
+    // Image extensions we recognise
+    const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|tiff?|svg|avif|ico)$/i;
+
+    /**
+     * Convert a raw pasted line into a usable src URL.
+     * Handles:
+     *   - Already valid http/https/blob/data URLs → pass through
+     *   - Windows paths:  D:\Folder\img.jpg  or  "D:\Folder\img.jpg"
+     *   - UNC paths:      \\server\share\img.jpg
+     *   - Unix paths:     /home/user/img.jpg
+     * Folder paths are flagged so we can warn the user (browsers can't open folders by path).
+     */
+    function resolveInputLine(raw) {
+        // Strip surrounding quotes
+        const line = raw.replace(/^["']+|["']+$/g, '').trim();
+        if (!line) return null;
+
+        // Already a usable URL
+        if (/^(https?|blob|data|file):\/\//i.test(line)) return line;
+
+        // Windows absolute path  e.g.  C:\...  or  D:/...
+        const isWinPath = /^[A-Za-z]:[/\\]/.test(line);
+        // UNC path  \\server\share\...
+        const isUNC = /^\\\\/.test(line);
+        // Unix absolute path  /home/...
+        const isUnixPath = /^\//.test(line) && !isUNC;
+
+        if (isWinPath || isUNC || isUnixPath) {
+            // Normalise backslashes → forward slashes
+            const fwd = line.replace(/\\/g, '/');
+
+            // Folder path (no image extension at the end)?
+            if (!IMG_EXTS.test(fwd)) {
+                return { type: 'folder-path', raw: line };
+            }
+
+            // Single image file path → file:/// URL
+            // Windows:  C:/Photos/a.jpg  →  file:///C:/Photos/a.jpg
+            // UNC:      //server/share/a.jpg  →  file:////server/share/a.jpg (browser handles it)
+            // Unix:     /home/user/a.jpg  →  file:////home/user/a.jpg  (triple-slash + path)
+            if (isWinPath) return 'file:///' + encodeURI(fwd);
+            return 'file://' + encodeURI(fwd);    // unix / UNC already start with /
+        }
+
+        // Fallback — treat as relative URL / plain filename
+        return line;
+    }
+
+    /** Parse all lines in the textarea into resolved URLs */
+    function parseInputLines(raw) {
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        const urls = [];
+        const folderPaths = [];
+
+        lines.forEach(line => {
+            const resolved = resolveInputLine(line);
+            if (!resolved) return;
+            if (typeof resolved === 'object' && resolved.type === 'folder-path') {
+                folderPaths.push(resolved.raw);
+            } else {
+                urls.push(resolved);
+            }
+        });
+        return { urls, folderPaths };
+    }
+
+    // ─── File / Folder picker (real files → blob URLs) ────────────────────────
+    async function browseLocalFiles() {
+        // Try modern File System Access API first
+        if (window.showOpenFilePicker) {
+            try {
+                const handles = await window.showOpenFilePicker({
+                    multiple: true,
+                    types: [{ description: 'Images', accept: { 'image/*': ['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif','.tiff'] } }]
+                });
+                const files = await Promise.all(handles.map(h => h.getFile()));
+                ingestFiles(files);
+                return;
+            } catch(e) { if (e.name === 'AbortError') return; }
+        }
+        // Fallback: classic <input type="file">
+        document.getElementById('filePickerInput').click();
+    }
+
+    async function browseLocalFolder() {
+        if (window.showDirectoryPicker) {
+            try {
+                const dirHandle = await window.showDirectoryPicker();
+                const files = [];
+                for await (const entry of dirHandle.values()) {
+                    if (entry.kind === 'file') {
+                        const f = await entry.getFile();
+                        if (IMG_EXTS.test(f.name)) files.push(f);
+                    }
+                }
+                if (files.length === 0) { showToast('No images found in that folder.'); return; }
+                ingestFiles(files);
+                return;
+            } catch(e) { if (e.name === 'AbortError') return; }
+        }
+        // Fallback: webkitdirectory input
+        document.getElementById('folderPickerInput').click();
+    }
+
+    function handleFileInputChange(event) {
+        const files = Array.from(event.target.files).filter(f => IMG_EXTS.test(f.name));
+        if (files.length) ingestFiles(files);
+        event.target.value = ''; // reset so same folder can be re-picked
+    }
+
+    /** Convert File objects → blob URLs, append to textarea, then render */
+    function ingestFiles(files) {
+        // Sort by name for consistent ordering
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+        const newLines = files.map(f => {
+            const blobUrl = URL.createObjectURL(f);
+            localFileNames[blobUrl] = f.name;   // save name for downloads
+            return blobUrl;
+        });
+
+        const existing = textarea.value.trim();
+        textarea.value = existing ? existing + '\n' + newLines.join('\n') : newLines.join('\n');
+        renderGallery();
+        showToast(`📂 Loaded ${files.length} image${files.length > 1 ? 's' : ''}`);
+    }
+
+    async function downloadImage(url, filename) {
+        // Blob URLs: create a direct anchor link
+        if (url.startsWith('blob:')) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            return;
+        }
+        // file:/// URLs: open in new tab (can't fetch() local files cross-origin)
+        if (url.startsWith('file:///')) {
+            window.open(url, '_blank');
+            return;
+        }
+        try {
+            const res  = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+            const blob = await res.blob();
+            const a    = document.createElement('a');
+            a.href     = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        } catch {
+            // CORS blocked — open in new tab as fallback
+            window.open(url, '_blank');
+        }
+    }
+
+    async function downloadAll() {
+        if (!currentImages.length) return;
+        showToast(`⬇ Downloading ${currentImages.length} image${currentImages.length > 1 ? 's' : ''}…`);
+        for (let i = 0; i < currentImages.length; i++) {
+            await downloadImage(currentImages[i], filenameFromUrl(currentImages[i], i));
+            // small stagger so browser doesn't block rapid-fire downloads
+            await new Promise(r => setTimeout(r, 300));
+        }
+        showToast(`✓ All ${currentImages.length} images downloaded`);
+    }
+
+    // ─── Gallery Render ───────────────────────────────────────────────────────
+    function renderGallery() {
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '';
+
+        const { urls, folderPaths } = parseInputLines(textarea.value);
+        currentImages = urls;
+
+        if (folderPaths.length > 0) {
+            showToast(`📁 ${folderPaths.length} folder path${folderPaths.length > 1 ? 's' : ''} detected — use the 📁 Folder button to pick them instead`);
+        }
+
+        if (currentImages.length === 0) {
+            gallery.innerHTML = '<div class="empty-state"><div class="icon">◻</div>Paste image URLs or local paths above — or use the 📂 / 📁 buttons to browse your PC</div>';
+            countBadge.textContent = '';
+            countBadge.classList.remove('visible');
+            dlAllBtn.style.display = 'none';
+            return;
+        }
+
+        countBadge.textContent = currentImages.length + ' images';
+        countBadge.classList.add('visible');
+        dlAllBtn.style.display = 'inline-flex';
+
+        // Build gallery cards with lazy IntersectionObserver
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                const card  = entry.target;
+                const url   = card.dataset.src;
+                const index = parseInt(card.dataset.index);
+                obs.unobserve(card);
+
+                createThumbnail(url, (thumbSrc) => {
+                    if (!thumbSrc) { card.style.display = 'none'; return; }
+                    const img = document.createElement('img');
+                    img.src   = thumbSrc;
+                    img.alt   = '';
+                    img.decoding = 'async';
+                    img.onload = () => {
+                        requestAnimationFrame(() => {
+                            card.appendChild(img);
+                            card.classList.add('loaded');
+                        });
+                    };
+                    const overlay = document.createElement('div');
+                    overlay.className = 'card-overlay';
+                    const idxLabel = document.createElement('div');
+                    idxLabel.className = 'card-index';
+                    idxLabel.textContent = String(index + 1).padStart(2, '0');
+
+                    // per-card download button
+                    const dlBtn = document.createElement('button');
+                    dlBtn.className = 'card-dl-btn';
+                    dlBtn.title = 'Download image';
+                    dlBtn.innerHTML = '↓';
+                    dlBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        downloadImage(url, filenameFromUrl(url, index));
+                        showToast('⬇ Downloading image…');
+                    };
+
+                    card.appendChild(overlay);
+                    card.appendChild(idxLabel);
+                    card.appendChild(dlBtn);
+                });
+            });
+        }, { rootMargin: '200px' });
+
+        currentImages.forEach((url, i) => {
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+            card.dataset.src   = url;
+            card.dataset.index = i;
+            card.style.animationDelay = (i * 40) + 'ms';
+            card.onclick = () => openLightbox(i);
+            gallery.appendChild(card);
+            observer.observe(card);
+        });
+    }
+
+    // ─── Lightbox ─────────────────────────────────────────────────────────────
+    function openLightbox(index) {
+        currentIndex = index;
+        lightbox.style.display = 'flex';
+        lightbox.classList.remove('closing');
+        document.body.style.overflow = 'hidden';
+        resetZoom();
+        updateLightboxImage(false);
+        showControls();
+        attachControlHoverListeners();
+    }
+
+    function closeLightbox() {
+        clearTimeout(uiTimeout);
+        uiLocked = false;
+        hideControls();
+        lightbox.classList.add('closing');
+        setTimeout(() => {
+            lightbox.style.display = 'none';
+            lightbox.classList.remove('closing');
+            document.body.style.overflow = 'auto';
+        }, 200);
+    }
+
+    function updateLightboxImage(animate = true) {
+        if (animate) {
+            lightboxImg.classList.add('switching');
+            setTimeout(() => {
+                lightboxImg.src = currentImages[currentIndex];
+                lightboxImg.classList.remove('switching');
+            }, 160);
+        } else {
+            lightboxImg.src = currentImages[currentIndex];
+        }
+        lbCounter.textContent = (currentIndex + 1) + ' / ' + currentImages.length;
+    }
+
+    function changeImage(step) {
+        if (scale > 1) return;
+        currentIndex = (currentIndex + step + currentImages.length) % currentImages.length;
+        updateLightboxImage(true);
+        showControls();
+    }
+
+    // ─── Zoom ─────────────────────────────────────────────────────────────────
+    function resetZoom() {
+        scale = 1; translateX = 0; translateY = 0;
+        zoomSlider.value = 1;
+        zoomBar.style.display = 'none';
+        imgContainer.style.cursor = 'default';
+        lightboxImg.style.transformOrigin = 'center center';
+        updateTransform();
+        showControls();
+    }
+
+    function handleDoubleTap(e) {
+        if (scale === 1) {
+            const rect = lightboxImg.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            lightboxImg.style.transformOrigin = `${x}% ${y}%`;
+            scale = 4; zoomSlider.value = 4;
+            applyZoom();
+        } else {
+            resetZoom();
+        }
+    }
+
+    function applyZoom() {
+        scale = parseFloat(zoomSlider.value);
+        if (scale <= 1) { resetZoom(); return; }
+        zoomBar.style.display = 'flex';
+        imgContainer.style.cursor = 'grab';
+        // hide nav controls when zoomed (keep close btn though)
+        clearTimeout(uiTimeout);
+        hideControls();
+        updateTransform();
+    }
+
+    function updateTransform() {
+        lightboxImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
+    }
+
+    // ─── Panning ──────────────────────────────────────────────────────────────
+    function startPanning(e) {
+        if (scale > 1 && e.button === 0) {
+            isPanning = true;
+            lightboxImg.style.transition = 'none';
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            imgContainer.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    }
+    function doPanning(e) {
+        if (!isPanning) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
+    }
+    function stopPanning() {
+        isPanning = false;
+        lightboxImg.style.transition = 'transform 0.22s cubic-bezier(0.2,0,0,1)';
+        if (scale > 1) imgContainer.style.cursor = 'grab';
+    }
+
+    // ─── Lightbox mousemove → show controls ──────────────────────────────────
+    lightbox.addEventListener('mousemove', () => {
+        if (lightbox.style.display === 'flex' && !uiLocked) showControls();
+    });
+
+    // ─── Keyboard ─────────────────────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+        // Global: Enter = Display, C = Clear (when textarea not focused)
+        if (document.activeElement !== textarea) {
+            if (e.key === 'Enter') { e.preventDefault(); renderGallery(); return; }
+            if (e.key === 'c' || e.key === 'C') { e.preventDefault(); clearAll(); return; }
+        }
+        if (document.activeElement === textarea && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault(); renderGallery(); return;
+        }
+
+        if (lightbox.style.display !== 'flex') return;
+
+        // H — toggle hide/show of nav controls, close btn, counter
+        if (e.key === 'h' || e.key === 'H') { e.preventDefault(); toggleUILock(); return; }
+
+        if (e.key === 'PageDown' || e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            zoomSlider.value = Math.min(10, parseFloat(zoomSlider.value) + 0.5);
+            applyZoom();
+        } else if (e.key === 'PageUp' || e.key === '-' || e.key === '_') {
+            e.preventDefault();
+            zoomSlider.value = Math.max(1, parseFloat(zoomSlider.value) - 0.5);
+            applyZoom();
+        }
+
+        if (scale > 1) {
+            if (e.key === 'ArrowLeft')  { translateX += panStep; updateTransform(); }
+            if (e.key === 'ArrowRight') { translateX -= panStep; updateTransform(); }
+            if (e.key === 'ArrowUp')    { translateY += panStep; updateTransform(); }
+            if (e.key === 'ArrowDown')  { translateY -= panStep; updateTransform(); }
+            if (e.key === 'Escape')     resetZoom();
+        } else {
+            if (e.key === 'ArrowLeft')  changeImage(-1);
+            if (e.key === 'ArrowRight') changeImage(1);
+            if (e.key === 'Escape')     closeLightbox();
+        }
+    });
+
+    // Mouse wheel zoom in lightbox
+    lightbox.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.5 : 0.5;
+        const newVal = Math.max(1, Math.min(10, parseFloat(zoomSlider.value) + delta));
+        zoomSlider.value = newVal;
+        applyZoom();
+    }, { passive: false });
+
+    // ─── Clear ────────────────────────────────────────────────────────────────
+    function clearAll() {
+        textarea.value = '';
+        document.getElementById('gallery').innerHTML = '';
+        currentImages = [];
+        countBadge.textContent = '';
+        countBadge.classList.remove('visible');
+        dlAllBtn.style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
