@@ -361,6 +361,7 @@
             position: fixed;
             inset: 0;
             background: rgba(5,5,10,0.97);
+            overflow: hidden;
             z-index: 1000;
             flex-direction: column;
             justify-content: center;
@@ -388,10 +389,14 @@
         #lightboxImg {
             width: 100%;
             height: 100%;
+            flex: none;
+            max-width: none;
             object-fit: contain;
-            transition: transform 0.22s cubic-bezier(0.2,0,0,1), opacity 0.18s;
+            transition: transform 0.22s cubic-bezier(0.2,0,0,1), opacity 0.18s,
+                        width 0.22s cubic-bezier(0.2,0,0,1), height 0.22s cubic-bezier(0.2,0,0,1);
             transform-origin: center center;
         }
+        #lightboxImg.no-anim { transition: none !important; }
         #lightboxImg.switching {
             opacity: 0;
             transform: scale(0.95);
@@ -426,6 +431,14 @@
         #closeBtn { top: 22px; right: 26px; }
         #prevBtn  { left: 22px; top: 50%; transform: translateY(-50%); }
         #nextBtn  { right: 22px; top: 50%; transform: translateY(-50%); }
+        #rotateBtn { top: 22px; right: 92px; }
+        #fsBtn     { top: 22px; right: 158px; }
+        .lb-control svg { width: 22px; height: 22px; display: block; }
+
+        /* Full-screen mode: nothing but the image */
+        #lightbox.fs .lb-control,
+        #lightbox.fs #lbCounter,
+        #lightbox.fs #zoomBar { display: none !important; }
 
         /* Counter — top-left, above the image in the black letterbox zone */
         #lbCounter {
@@ -510,6 +523,8 @@
         <div class="key-hint">
             <span><kbd>↵ Enter</kbd> display</span>
             <span><kbd>C</kbd> clear</span>
+            <span><kbd>F</kbd> fullscreen</span>
+            <span><kbd>R</kbd> rotate</span>
         </div>
     </div>
     <!-- hidden file inputs for fallback -->
@@ -523,6 +538,12 @@
 <div id="lightbox">
     <span id="lbCounter"></span>
     <button id="closeBtn" class="lb-control" onclick="closeLightbox()">✕</button>
+    <button id="rotateBtn" class="lb-control" onclick="rotateImage()" title="Rotate 90° (R)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+    </button>
+    <button id="fsBtn" class="lb-control" onclick="toggleFullscreen()" title="Full screen (F)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
     <button id="prevBtn" class="lb-control" onclick="changeImage(-1)">‹</button>
 
     <div id="imgContainer"
@@ -550,6 +571,8 @@
     let scale = 1, isPanning = false;
     let startX, startY, translateX = 0, translateY = 0;
     const panStep = 80;
+    let rotation = 0;               // cumulative degrees (multiples of 90), kept across images
+    let anchorX = 0, anchorY = 0;   // zoom anchor, relative to viewer centre
 
     const lightbox     = document.getElementById('lightbox');
     const lightboxImg  = document.getElementById('lightboxImg');
@@ -933,6 +956,7 @@
         lightbox.style.display = 'flex';
         lightbox.classList.remove('closing');
         document.body.style.overflow = 'hidden';
+        layoutImage(true);
         resetZoom();
         updateLightboxImage(false);
         showControls();
@@ -943,11 +967,15 @@
         clearTimeout(uiTimeout);
         uiLocked = false;
         hideControls();
+        if (isFullscreen()) exitFullscreen();
         lightbox.classList.add('closing');
         setTimeout(() => {
             lightbox.style.display = 'none';
             lightbox.classList.remove('closing');
             document.body.style.overflow = 'auto';
+            rotation = 0;               // fresh start next time the viewer opens
+            layoutImage(true);
+            updateTransform();
         }, 200);
     }
 
@@ -974,6 +1002,7 @@
     // ─── Zoom ─────────────────────────────────────────────────────────────────
     function resetZoom() {
         scale = 1; translateX = 0; translateY = 0;
+        anchorX = 0; anchorY = 0;
         zoomSlider.value = 1;
         zoomBar.style.display = 'none';
         imgContainer.style.cursor = 'default';
@@ -984,11 +1013,11 @@
 
     function handleDoubleTap(e) {
         if (scale === 1) {
-            const rect = lightboxImg.getBoundingClientRect();
-            const x = ((e.clientX - rect.left) / rect.width) * 100;
-            const y = ((e.clientY - rect.top) / rect.height) * 100;
-            lightboxImg.style.transformOrigin = `${x}% ${y}%`;
-            scale = 4; zoomSlider.value = 4;
+            // zoom towards the clicked point (works at any rotation)
+            const r = imgContainer.getBoundingClientRect();
+            anchorX = e.clientX - (r.left + r.width / 2);
+            anchorY = e.clientY - (r.top + r.height / 2);
+            zoomSlider.value = 4;
             applyZoom();
         } else {
             resetZoom();
@@ -996,8 +1025,14 @@
     }
 
     function applyZoom() {
-        scale = parseFloat(zoomSlider.value);
-        if (scale <= 1) { resetZoom(); return; }
+        const prev = scale;
+        const next = parseFloat(zoomSlider.value);
+        if (next <= 1) { resetZoom(); return; }
+        // keep the anchor point fixed on screen while the scale changes
+        const k = next / prev;
+        translateX = anchorX - k * (anchorX - translateX);
+        translateY = anchorY - k * (anchorY - translateY);
+        scale = next;
         zoomBar.style.display = 'flex';
         imgContainer.style.cursor = 'grab';
         // hide nav controls when zoomed (keep close btn though)
@@ -1007,14 +1042,14 @@
     }
 
     function updateTransform() {
-        lightboxImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale})`;
+        lightboxImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale}) rotate(${rotation}deg)`;
     }
 
     // ─── Panning ──────────────────────────────────────────────────────────────
     function startPanning(e) {
         if (scale > 1 && e.button === 0) {
             isPanning = true;
-            lightboxImg.style.transition = 'none';
+            lightboxImg.classList.add('no-anim');
             startX = e.clientX - translateX;
             startY = e.clientY - translateY;
             imgContainer.style.cursor = 'grabbing';
@@ -1029,7 +1064,7 @@
     }
     function stopPanning() {
         isPanning = false;
-        lightboxImg.style.transition = 'transform 0.22s cubic-bezier(0.2,0,0,1)';
+        lightboxImg.classList.remove('no-anim');
         if (scale > 1) imgContainer.style.cursor = 'grab';
     }
 
@@ -1054,6 +1089,20 @@
         // H — toggle hide/show of nav controls, close btn, counter
         if (e.key === 'h' || e.key === 'H') { e.preventDefault(); toggleUILock(); return; }
 
+        // F — full screen,  R — rotate 90° (ignore Ctrl/Cmd/Alt combos like Ctrl+R reload)
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            if (e.key.toLowerCase() === 'f' || e.code === 'KeyF') {
+                e.preventDefault();
+                if (!e.repeat) toggleFullscreen();
+                return;
+            }
+            if (e.key.toLowerCase() === 'r' || e.code === 'KeyR') {
+                e.preventDefault();
+                rotateImage();
+                return;
+            }
+        }
+
         if (e.key === 'PageDown' || e.key === '+' || e.key === '=') {
             e.preventDefault();
             zoomSlider.value = Math.min(10, parseFloat(zoomSlider.value) + 0.5);
@@ -1073,7 +1122,7 @@
         } else {
             if (e.key === 'ArrowLeft')  changeImage(-1);
             if (e.key === 'ArrowRight') changeImage(1);
-            if (e.key === 'Escape')     closeLightbox();
+            if (e.key === 'Escape' && !isFullscreen()) closeLightbox();
         }
     });
 
@@ -1085,6 +1134,53 @@
         zoomSlider.value = newVal;
         applyZoom();
     }, { passive: false });
+
+    // ─── Rotation ─────────────────────────────────────────────────────────────
+    // The <img> box is swapped (width <-> height) on odd quarter-turns so the
+    // rotated picture still fits the screen exactly, in normal and full-screen view.
+    function layoutImage(instant) {
+        const odd = Math.abs(Math.round(rotation / 90)) % 2 === 1;
+        const w = imgContainer.clientWidth, h = imgContainer.clientHeight;
+        if (!w || !h) return;
+        if (instant) lightboxImg.classList.add('no-anim');
+        lightboxImg.style.width  = (odd ? h : w) + 'px';
+        lightboxImg.style.height = (odd ? w : h) + 'px';
+        if (instant) { void lightboxImg.offsetWidth; lightboxImg.classList.remove('no-anim'); }
+    }
+
+    function rotateImage() {
+        rotation += 90;     // clockwise, every press
+        layoutImage();
+        updateTransform();
+        showControls();
+    }
+
+    // ─── Full screen ──────────────────────────────────────────────────────────
+    function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    function isFullscreen() { return !!fsElement(); }
+    function exitFullscreen() {
+        const fn = document.exitFullscreen || document.webkitExitFullscreen;
+        if (fn) { const p = fn.call(document); if (p && p.catch) p.catch(() => {}); }
+    }
+    function toggleFullscreen() {
+        if (isFullscreen()) { exitFullscreen(); return; }
+        const req = lightbox.requestFullscreen || lightbox.webkitRequestFullscreen;
+        if (!req) { showToast('Full screen is not supported in this browser'); return; }
+        const p = req.call(lightbox);
+        if (p && p.catch) p.catch(() => showToast('Could not enter full screen'));
+    }
+    function onFullscreenChange() {
+        const fs = fsElement() === lightbox;
+        lightbox.classList.toggle('fs', fs);
+        layoutImage(true);
+        requestAnimationFrame(() => layoutImage(true));   // sizes settle a frame later
+        if (!fs && lightbox.style.display === 'flex') showControls();
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    window.addEventListener('resize', () => {
+        if (lightbox.style.display === 'flex') layoutImage(true);
+    });
 
     // ─── Clear ────────────────────────────────────────────────────────────────
     function clearAll() {
