@@ -1080,22 +1080,62 @@
             lightbox.classList.remove('closing');
             document.body.style.overflow = 'auto';
             rotation = 0;               // fresh start next time the viewer opens
+            preloadCache.clear();
             layoutImage(true);
             updateTransform();
         }, 200);
     }
 
+    // ── Preload + pre-decode neighbouring images so switching is instant ──
+    const preloadCache = new Map();   // url -> HTMLImageElement (kept decoded in memory)
+    let switchToken = 0, lastStep = 1;
+
+    function preloadImage(url) {
+        let im = preloadCache.get(url);
+        if (im) return im;
+        im = new Image();
+        im.decoding = 'async';
+        im.src = url;
+        preloadCache.set(url, im);
+        if (im.decode) im.decode().catch(() => {});
+        return im;
+    }
+
+    function preloadAround(index, dir) {
+        const n = currentImages.length;
+        if (!n) return;
+        const keep = new Set();
+        const wanted = [0];
+        for (let k = 1; k <= 4; k++) wanted.push(dir * k);     // ahead in travel direction
+        for (let k = 1; k <= 2; k++) wanted.push(-dir * k);    // a couple behind
+        wanted.forEach(off => {
+            const url = currentImages[((index + off) % n + n) % n];
+            keep.add(url);
+            preloadImage(url);
+        });
+        // free memory for anything outside the window
+        for (const url of preloadCache.keys()) if (!keep.has(url)) preloadCache.delete(url);
+    }
+
     function updateLightboxImage(animate = true) {
-        if (animate) {
-            lightboxImg.classList.add('switching');
-            setTimeout(() => {
-                lightboxImg.src = currentImages[currentIndex];
-                lightboxImg.classList.remove('switching');
-            }, 160);
-        } else {
-            lightboxImg.src = currentImages[currentIndex];
-        }
+        const url = currentImages[currentIndex];
+        const token = ++switchToken;
         lbCounter.textContent = (currentIndex + 1) + ' / ' + currentImages.length;
+        const im = preloadImage(url);
+        const swap = () => {
+            if (token !== switchToken) return;          // a newer navigation superseded this one
+            lightboxImg.src = url;
+            preloadAround(currentIndex, lastStep);
+        };
+        if (!animate) { swap(); return; }
+        // Keep the current picture on screen until the next one is decoded, then swap instantly (no blank flash)
+        if (im.complete && im.naturalWidth) {
+            swap();
+        } else if (im.decode) {
+            im.decode().then(swap, swap);
+        } else {
+            im.onload = swap; im.onerror = swap;
+        }
     }
 
     function downloadCurrentImage() {
@@ -1107,6 +1147,7 @@
 
     function changeImage(step) {
         if (scale > 1) return;
+        lastStep = step > 0 ? 1 : -1;
         currentIndex = (currentIndex + step + currentImages.length) % currentImages.length;
         updateLightboxImage(true);
         showControls();
@@ -1257,7 +1298,7 @@
         }
         const now = Date.now();
         if (now < wheelLockUntil || Math.abs(e.deltaY) < 4) return;   // one step per flick (trackpad-safe)
-        wheelLockUntil = now + 220;
+        wheelLockUntil = now + 120;
         changeImage(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
 
@@ -1313,6 +1354,7 @@
         textarea.value = '';
         document.getElementById('gallery').innerHTML = '';
         currentImages = [];
+        preloadCache.clear();
         countBadge.textContent = '';
         countBadge.classList.remove('visible');
         dlAllBtn.style.display = 'none';
