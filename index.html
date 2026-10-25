@@ -525,6 +525,7 @@
             <span><kbd>C</kbd> clear</span>
             <span><kbd>F</kbd> fullscreen</span>
             <span><kbd>R</kbd> rotate</span>
+            <span><kbd>D</kbd> download</span>
         </div>
     </div>
     <!-- hidden file inputs for fallback -->
@@ -858,15 +859,120 @@
         }
     }
 
-    async function downloadAll() {
-        if (!currentImages.length) return;
-        showToast(`⬇ Downloading ${currentImages.length} image${currentImages.length > 1 ? 's' : ''}…`);
-        for (let i = 0; i < currentImages.length; i++) {
-            await downloadImage(currentImages[i], filenameFromUrl(currentImages[i], i));
-            // small stagger so browser doesn't block rapid-fire downloads
-            await new Promise(r => setTimeout(r, 300));
+    // ─── Minimal ZIP writer (store-only, no library needed — works offline) ───
+    const CRC_TABLE = (() => {
+        const t = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+            let c = n;
+            for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+            t[n] = c >>> 0;
         }
-        showToast(`✓ All ${currentImages.length} images downloaded`);
+        return t;
+    })();
+    function crc32(buf) {
+        let c = 0xFFFFFFFF;
+        for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+        return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+    function buildZip(files) {          // files: [{name, data: Uint8Array}]
+        const enc = new TextEncoder();
+        const now = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+        const parts = [], central = [];
+        let offset = 0;
+        files.forEach(f => {
+            const nameBytes = enc.encode(f.name);
+            const crc = crc32(f.data), size = f.data.length;
+            const lh = new DataView(new ArrayBuffer(30));
+            lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true);
+            lh.setUint16(6, 0x0800, true);  lh.setUint16(8, 0, true);
+            lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+            lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+            lh.setUint16(26, nameBytes.length, true); lh.setUint16(28, 0, true);
+            parts.push(lh.buffer, nameBytes, f.data);
+
+            const ch = new DataView(new ArrayBuffer(46));
+            ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+            ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+            ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+            ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+            ch.setUint16(28, nameBytes.length, true);
+            ch.setUint32(42, offset, true);
+            central.push(ch.buffer, nameBytes);
+
+            offset += 30 + nameBytes.length + size;
+        });
+        let centralSize = 0;
+        central.forEach(c => centralSize += c.byteLength);
+        const end = new DataView(new ArrayBuffer(22));
+        end.setUint32(0, 0x06054b50, true);
+        end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+        end.setUint32(12, centralSize, true); end.setUint32(16, offset, true);
+        return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+    }
+
+    function uniqueName(name, used) {
+        if (!used.has(name)) { used.add(name); return name; }
+        const dot = name.lastIndexOf('.');
+        const base = dot > 0 ? name.slice(0, dot) : name;
+        const ext  = dot > 0 ? name.slice(dot) : '';
+        let n = 2, candidate;
+        do { candidate = `${base} (${n++})${ext}`; } while (used.has(candidate));
+        used.add(candidate);
+        return candidate;
+    }
+
+    const ZIP_THRESHOLD = 5;   // up to this many → separate downloads; more than this → one zip
+    let dlAllBusy = false;
+
+    async function downloadAll() {
+        if (!currentImages.length || dlAllBusy) return;
+        dlAllBusy = true;
+        try {
+            const total = currentImages.length;
+
+            // Few images → normal individual downloads
+            if (total <= ZIP_THRESHOLD) {
+                showToast(`⬇ Downloading ${total} image${total > 1 ? 's' : ''}…`);
+                for (let i = 0; i < total; i++) {
+                    await downloadImage(currentImages[i], filenameFromUrl(currentImages[i], i));
+                    await new Promise(r => setTimeout(r, 300));   // stagger so the browser doesn't block them
+                }
+                showToast(`✓ All ${total} images downloaded`);
+                return;
+            }
+
+            // Many images → fetch each one and pack into a single zip
+            const files = [], used = new Set();
+            let failed = 0;
+            for (let i = 0; i < total; i++) {
+                showToast(`📦 Preparing zip… ${i + 1} / ${total}`);
+                dlToast.classList.add('show'); clearTimeout(toastTimer);   // keep toast up during progress
+                try {
+                    const res = await fetch(currentImages[i], { mode: 'cors', cache: 'force-cache' });
+                    if (!res.ok) throw new Error('bad response');
+                    const data = new Uint8Array(await res.arrayBuffer());
+                    files.push({ name: uniqueName(filenameFromUrl(currentImages[i], i), used), data });
+                } catch (e) {
+                    failed++;
+                }
+            }
+            if (!files.length) { showToast('✕ Could not read any images for the zip (blocked by CORS / local path?)'); return; }
+
+            const d = new Date(), pad = n => String(n).padStart(2, '0');
+            const zipName = `gallery-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.zip`;
+            const url = URL.createObjectURL(buildZip(files));
+            const a = document.createElement('a');
+            a.href = url; a.download = zipName;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            showToast(failed
+                ? `✓ Zip downloaded — ${files.length} images (${failed} skipped, couldn't be fetched)`
+                : `✓ Zip downloaded — ${files.length} images`);
+        } finally {
+            dlAllBusy = false;
+        }
     }
 
     // ─── Gallery Render ───────────────────────────────────────────────────────
@@ -992,6 +1098,13 @@
         lbCounter.textContent = (currentIndex + 1) + ' / ' + currentImages.length;
     }
 
+    function downloadCurrentImage() {
+        const url = currentImages[currentIndex];
+        if (!url) return;
+        downloadImage(url, filenameFromUrl(url, currentIndex));
+        showToast('⬇ Downloading current image…');
+    }
+
     function changeImage(step) {
         if (scale > 1) return;
         currentIndex = (currentIndex + step + currentImages.length) % currentImages.length;
@@ -1101,6 +1214,11 @@
                 rotateImage();
                 return;
             }
+            if (e.key.toLowerCase() === 'd' || e.code === 'KeyD') {
+                e.preventDefault();
+                if (!e.repeat) downloadCurrentImage();
+                return;
+            }
         }
 
         if (e.key === 'PageDown' || e.key === '+' || e.key === '=') {
@@ -1126,13 +1244,21 @@
         }
     });
 
-    // Mouse wheel zoom in lightbox
+    // Mouse wheel: scroll down = next image, scroll up = previous image.
+    // While zoomed in (or with Ctrl held) the wheel zooms instead, so you can still zoom out.
+    let wheelLockUntil = 0;
     lightbox.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.5 : 0.5;
-        const newVal = Math.max(1, Math.min(10, parseFloat(zoomSlider.value) + delta));
-        zoomSlider.value = newVal;
-        applyZoom();
+        if (e.ctrlKey || scale > 1) {
+            const delta = e.deltaY > 0 ? -0.5 : 0.5;
+            zoomSlider.value = Math.max(1, Math.min(10, parseFloat(zoomSlider.value) + delta));
+            applyZoom();
+            return;
+        }
+        const now = Date.now();
+        if (now < wheelLockUntil || Math.abs(e.deltaY) < 4) return;   // one step per flick (trackpad-safe)
+        wheelLockUntil = now + 220;
+        changeImage(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
 
     // ─── Rotation ─────────────────────────────────────────────────────────────
