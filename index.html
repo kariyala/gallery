@@ -103,7 +103,7 @@
 
         textarea {
             width: 100%;
-            height: 68px;
+            height: 132px;
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -479,6 +479,205 @@
         }
         .zoom-label { color: rgba(255,255,255,0.5); font-size: 14px; user-select: none; }
 
+
+        /* ── Video: gallery cards ── */
+        .gallery-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+        .card-play {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 46px; height: 46px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+            border: 1.5px solid rgba(255,255,255,0.8);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 3;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            transition: transform 0.25s, background 0.25s;
+        }
+        .card-play svg { width: 18px; height: 18px; margin-left: 3px; fill: #fff; }
+        .gallery-card:hover .card-play { transform: translate(-50%, -50%) scale(1.1); background: rgba(200,169,110,0.85); }
+        .card-dur {
+            position: absolute;
+            top: 8px; right: 8px;
+            z-index: 3;
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.6);
+            color: rgba(255,255,255,0.88);
+            pointer-events: none;
+        }
+        .card-ph {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 8px; padding: 12px;
+            text-align: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            word-break: break-all;
+            background: var(--surface2);
+        }
+        .card-ph .ph-icon { font-size: 26px; opacity: 0.5; }
+
+        /* ── Video: lightbox player ── */
+        #lightboxVideo {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            outline: none;
+            cursor: pointer;
+            flex: none;
+            transform-origin: center center;
+            transition: transform 0.22s cubic-bezier(0.2,0,0,1), width 0.22s cubic-bezier(0.2,0,0,1), height 0.22s cubic-bezier(0.2,0,0,1);
+        }
+        #lightboxVideo.no-anim { transition: none !important; }
+        #lightbox.is-video #lightboxImg { display: none; }
+        #lightbox.is-video #lightboxVideo { display: block; }
+        /* rotate / top fullscreen button are image-only; video has its own fullscreen button in the bar */
+        #lightbox.is-video #rotateBtn,
+        #lightbox.is-video #fsBtn { display: none; }
+
+        #vPlay {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 84px; height: 84px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            border: 2px solid rgba(255,255,255,0.85);
+            color: #fff;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            z-index: 1004;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            transition: transform 0.15s, background 0.2s;
+        }
+        #vPlay svg { width: 34px; height: 34px; margin-left: 5px; }
+        #vPlay:hover { background: rgba(200,169,110,0.85); transform: translate(-50%, -50%) scale(1.07); }
+        #lightbox.is-video.v-fresh:not(.v-error) #vPlay { display: flex; }
+        /* after a trackpad/mouse pause the circle just fades away (no lingering controls) */
+        #lightbox.is-video:not(.v-error) #vPlay.fade-out {
+            display: flex;
+            pointer-events: none;
+            animation: vPlayFade 0.75s ease forwards;
+        }
+        @keyframes vPlayFade { from { opacity: 1; } to { opacity: 0; } }
+
+        #vError {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1004;
+            text-align: center;
+            max-width: 440px;
+            padding: 22px 26px;
+            background: rgba(18,18,26,0.92);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+        #vError .v-err-title { font-size: 13px; color: var(--text); margin-bottom: 8px; }
+        #vError .v-err-sub { font-size: 11px; line-height: 1.6; color: var(--text-muted); }
+        #lightbox.is-video.v-error #vError { display: block; }
+
+        #vBar {
+            display: none;
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            padding: 56px 28px 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.78), transparent);
+            z-index: 1007;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #lightbox.is-video #vBar { display: block; }
+        #vBar.show { opacity: 1; pointer-events: auto; }
+
+        .v-row1 { display: flex; align-items: center; gap: 14px; }
+        .v-row2 { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+        .v-btn {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex: none;
+            transition: background 0.2s;
+        }
+        .v-btn:hover { background: rgba(255,255,255,0.22); }
+        .v-btn svg { width: 18px; height: 18px; display: block; }
+        .v-time {
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            color: rgba(255,255,255,0.8);
+            font-variant-numeric: tabular-nums;
+            min-width: 38px;
+            text-align: center;
+            flex: none;
+        }
+        #vSeek {
+            flex: 1;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            touch-action: none;
+        }
+        #vSeek .track {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.22);
+            transition: height 0.15s;
+        }
+        #vSeek:hover .track, #vSeek.scrub .track { height: 6px; }
+        #vFill {
+            position: absolute; left: 0; top: 0; bottom: 0;
+            width: 0;
+            border-radius: 3px;
+            background: var(--accent);
+        }
+        #vKnob {
+            position: absolute; top: 50%; left: 0;
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            background: var(--accent);
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.15s;
+        }
+        #vSeek:hover #vKnob, #vSeek.scrub #vKnob { transform: translate(-50%, -50%) scale(1); }
+        #vSpeed {
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+        }
+        #lightbox.v-paused .ic-pause { display: none; }
+        #lightbox:not(.v-paused) .ic-play { display: none; }
+        #lightbox.fs .ic-enter { display: none; }
+        #lightbox:not(.fs) .ic-exit { display: none; }
+
         /* ── Animations ── */
         @keyframes slideDown {
             from { opacity: 0; transform: translateY(-14px); }
@@ -507,18 +706,18 @@
 
 <div class="header">
     <h1>Gallery</h1>
-    <span class="sub">URL &amp; Local Image Viewer</span>
+    <span class="sub">URL &amp; Local Image / Video Viewer</span>
     <span class="count-badge" id="countBadge"></span>
 </div>
 
 <div class="input-panel">
-    <div class="panel-label">Paste image URLs or local file / folder paths — one per line</div>
-    <textarea id="urlInput" placeholder="https://example.com/image.jpg"></textarea>
+    <div class="panel-label">Paste image / video URLs or local file / folder paths — one per line</div>
+    <textarea id="urlInput" placeholder="https://example.com/image.jpg&#10;https://example.com/video.mp4"></textarea>
     <div class="btn-row">
         <button class="btn btn-display" onclick="renderGallery()">Display</button>
         <button class="btn btn-clear" onclick="clearAll()">Clear</button>
-        <button class="btn btn-browse-files" id="browseFilesBtn" onclick="browseLocalFiles()" title="Pick individual image files from your PC">📂 Files</button>
-        <button class="btn btn-browse-folder" id="browseFolderBtn" onclick="browseLocalFolder()" title="Pick a folder — all images inside will be loaded">📁 Folder</button>
+        <button class="btn btn-browse-files" id="browseFilesBtn" onclick="browseLocalFiles()" title="Pick individual image / video files from your PC">📂 Files</button>
+        <button class="btn btn-browse-folder" id="browseFolderBtn" onclick="browseLocalFolder()" title="Pick a folder — all images and videos inside will be loaded">📁 Folder</button>
         <button class="btn btn-dl-all" id="dlAllBtn" onclick="downloadAll()" style="display:none;">Download All</button>
         <div class="key-hint">
             <span><kbd>↵ Enter</kbd> display</span>
@@ -529,8 +728,8 @@
         </div>
     </div>
     <!-- hidden file inputs for fallback -->
-    <input type="file" id="filePickerInput" accept="image/*" multiple style="display:none" onchange="handleFileInputChange(event)">
-    <input type="file" id="folderPickerInput" accept="image/*" multiple webkitdirectory style="display:none" onchange="handleFileInputChange(event)">
+    <input type="file" id="filePickerInput" accept="image/*,video/*,.mkv,.avi,.wmv,.flv,.mov,.m4v,.3gp" multiple style="display:none" onchange="handleFileInputChange(event)">
+    <input type="file" id="folderPickerInput" accept="image/*,video/*,.mkv,.avi,.wmv,.flv,.mov,.m4v,.3gp" multiple webkitdirectory style="display:none" onchange="handleFileInputChange(event)">
 </div>
 
 <div id="gallery"></div>
@@ -553,6 +752,7 @@
          onmouseup="stopPanning()"
          ondblclick="handleDoubleTap(event)">
         <img id="lightboxImg" src="" alt="Full view">
+        <video id="lightboxVideo" playsinline preload="auto"></video>
     </div>
 
     <button id="nextBtn" class="lb-control" onclick="changeImage(1)">›</button>
@@ -561,6 +761,33 @@
         <span class="zoom-label">+</span>
         <input type="range" id="zoomSlider" min="1" max="10" step="0.1" value="1" oninput="applyZoom()">
         <span class="zoom-label">−</span>
+    </div>
+
+    <!-- Video player UI -->
+    <div id="vPlay" title="Play (Space)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div id="vError">
+        <div class="v-err-title">This video can't be played here</div>
+        <div class="v-err-sub">The browser may not support its format / codec (AVI, MKV, WMV, FLV are often unsupported), or the link is blocked. Press D to download it instead.</div>
+    </div>
+    <div id="vBar">
+        <div class="v-row1">
+            <button class="v-btn" id="vToggle" tabindex="-1" title="Play / Pause (Space)">
+                <svg class="ic-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <svg class="ic-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+            </button>
+            <span class="v-time" id="vCur">0:00</span>
+            <div id="vSeek"><div class="track"><div id="vFill"></div><div id="vKnob"></div></div></div>
+            <span class="v-time" id="vDur">0:00</span>
+        </div>
+        <div class="v-row2">
+            <span id="vSpeed">Speed 1x</span>
+            <button class="v-btn" id="vFs" tabindex="-1" title="Full screen (F)">
+                <svg class="ic-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                <svg class="ic-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -585,24 +812,50 @@
     const textarea     = document.getElementById('urlInput');
     const allControls  = () => document.querySelectorAll('.lb-control');
 
+    // video player elements
+    const lbVideo    = document.getElementById('lightboxVideo');
+    const vBar       = document.getElementById('vBar');
+    const vSeek      = document.getElementById('vSeek');
+    const vTrack     = vSeek.querySelector('.track');
+    const vFill      = document.getElementById('vFill');
+    const vKnob      = document.getElementById('vKnob');
+    const vCur       = document.getElementById('vCur');
+    const vDur       = document.getElementById('vDur');
+    const vSpeed     = document.getElementById('vSpeed');
+    const vToggle    = document.getElementById('vToggle');
+    const vFs        = document.getElementById('vFs');
+    const vPlay      = document.getElementById('vPlay');
+    const SPEEDS     = [0.25, 0.5, 1, 1.25, 1.5, 2];
+    const DEFAULT_SPEED_IDX = 2;     // 1x
+    const SEEK_STEP  = 5;            // seconds for PgUp / PgDn
+    let speedIdx = DEFAULT_SPEED_IDX, scrubbing = false, vRaf = 0;
+    let pauseSource = null;                 // 'key' | 'mouse' — who paused the video
+    let lastMouse = { x: 0, y: 0 };         // latest pointer position
+    let hoverSuppress = null;               // after a pause: controls stay hidden until the pointer really moves
+
     // ─── Control visibility ───────────────────────────────────────────────────
     let hoveredControl = false;
     let uiLocked = false;   // true = H pressed, controls stay hidden
+
+    // Video controls fade after 0.75 s, image controls after 3 s
+    function hideDelay() { return isVideoActive() ? 750 : 3000; }
 
     function showControls() {
         if (scale > 1) return;
         if (uiLocked) return;
         allControls().forEach(el => el.classList.add('controls-visible'));
         lbCounter.style.opacity = '1';
+        if (isVideoActive()) vBar.classList.add('show');
         clearTimeout(uiTimeout);
         uiTimeout = setTimeout(() => {
             if (!hoveredControl) hideControls();
-        }, 3000);
+        }, hideDelay());
     }
 
     function hideControls() {
         allControls().forEach(el => el.classList.remove('controls-visible'));
         lbCounter.style.opacity = '0';
+        vBar.classList.remove('show');
     }
 
     function toggleUILock() {
@@ -613,26 +866,28 @@
         } else {
             allControls().forEach(el => el.classList.add('controls-visible'));
             lbCounter.style.opacity = '1';
+            if (isVideoActive()) vBar.classList.add('show');
             uiTimeout = setTimeout(() => {
                 if (!hoveredControl) hideControls();
-            }, 3000);
+            }, hideDelay());
         }
     }
 
-    // Attach hover listeners to each control so hovering pauses the timer
+    // Hovering a control (or the video bar) pauses the fade timer
+    let hoverAttached = false;
     function attachControlHoverListeners() {
-        allControls().forEach(el => {
+        if (hoverAttached) return;
+        hoverAttached = true;
+        [...allControls(), vBar].forEach(el => {
             el.addEventListener('mouseenter', () => {
                 hoveredControl = true;
                 clearTimeout(uiTimeout);
-                // ensure visible while hovered
-                el.classList.add('controls-visible');
+                el.classList.add(el === vBar ? 'show' : 'controls-visible');
             });
             el.addEventListener('mouseleave', () => {
                 hoveredControl = false;
-                // restart the hide timer from now
                 clearTimeout(uiTimeout);
-                uiTimeout = setTimeout(hideControls, 3000);
+                uiTimeout = setTimeout(hideControls, hideDelay());
             });
         });
     }
@@ -665,6 +920,80 @@
         img.src = url;
     }
 
+    // ─── Video thumbnails ────────────────────────────────────────────────────
+    // Grabs a frame from the video. If the canvas is tainted (no CORS) or the frame can't be
+    // grabbed, result.src is null and the card shows a muted <video> element directly instead.
+    function createVideoThumbnail(url, callback) {
+        const remote = /^https?:\/\//i.test(url);
+        const attempt = (useCors) => {
+            const v = document.createElement('video');
+            v.muted = true; v.preload = 'auto'; v.playsInline = true;
+            if (useCors) v.crossOrigin = 'anonymous';
+            let done = false;
+            const release = () => { try { v.removeAttribute('src'); v.load(); } catch (e) {} };
+            const timer = setTimeout(() => finish({ kind: 'video', src: null, duration: NaN }), 12000);
+            const finish = (res) => {
+                if (done) return;
+                done = true; clearTimeout(timer); release(); callback(res);
+            };
+            const capture = () => {
+                const dur = v.duration;
+                try {
+                    if (!v.videoWidth) throw new Error('no frame');
+                    const ratio = Math.min(THUMB_MAX / v.videoWidth, THUMB_MAX / v.videoHeight, 1);
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(v.videoWidth * ratio);
+                    c.height = Math.round(v.videoHeight * ratio);
+                    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+                    finish({ kind: 'video', src: c.toDataURL('image/jpeg', 0.8), duration: dur });
+                } catch (e) {
+                    finish({ kind: 'video', src: null, duration: dur });
+                }
+            };
+            v.addEventListener('loadeddata', () => {
+                const d = v.duration;
+                const t = (isFinite(d) && d > 0) ? Math.min(1, d * 0.1) : 0;
+                if (t > 0) v.currentTime = t; else capture();
+            });
+            v.addEventListener('seeked', capture);
+            v.addEventListener('error', () => {
+                if (done) return;
+                if (useCors && remote) {            // server may not send CORS headers — retry without
+                    done = true; clearTimeout(timer); release(); attempt(false);
+                } else {
+                    finish({ kind: 'video', src: null, failed: true, duration: NaN });
+                }
+            });
+            v.src = url;
+        };
+        attempt(remote);
+    }
+
+    // Unified thumbnail entry point: calls back with {kind, src, duration, failed} or null
+    function createMediaThumbnail(url, cb) {
+        if (mediaType(url) === 'video') { createVideoThumbnail(url, cb); return; }
+        createThumbnail(url, (src) => {
+            if (src) { cb({ kind: 'image', src }); return; }
+            // Unknown extension on a web link? It might be a video — try that before giving up.
+            const ambiguous = /^https?:\/\//i.test(url) && !hasKnownExt(url);
+            if (!ambiguous) { cb(null); return; }
+            createVideoThumbnail(url, (res) => {
+                if (!res || res.failed) { cb(null); return; }
+                knownKind[url] = 'video';
+                updateCountBadge();
+                cb(res);
+            });
+        });
+    }
+
+    function fmtTime(s) {
+        if (!isFinite(s) || s < 0) s = 0;
+        s = Math.floor(s);
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+        const p = n => String(n).padStart(2, '0');
+        return h ? `${h}:${p(m)}:${p(sec)}` : `${m}:${p(sec)}`;
+    }
+
     // ─── Download helpers ─────────────────────────────────────────────────────
     const dlToast  = document.getElementById('dlToast');
     const dlAllBtn = document.getElementById('dlAllBtn');
@@ -677,10 +1006,14 @@
         toastTimer = setTimeout(() => dlToast.classList.remove('show'), 2800);
     }
 
+    function defaultName(url, index) {
+        return mediaType(url) === 'video' ? `video-${index + 1}.mp4` : `image-${index + 1}.jpg`;
+    }
+
     function filenameFromUrl(url, index) {
         // local blob URL
         if (url.startsWith('blob:')) {
-            return localFileNames[url] || `image-${index + 1}.jpg`;
+            return localFileNames[url] || defaultName(url, index);
         }
         // file:/// local path
         if (url.startsWith('file:///')) {
@@ -688,15 +1021,15 @@
                 const decoded = decodeURIComponent(url.replace('file:///', '').replace(/\//g, '\\'));
                 const parts = decoded.split(/[/\\]/);
                 const name = parts.pop();
-                return name && name.includes('.') ? name : `image-${index + 1}.jpg`;
-            } catch { return `image-${index + 1}.jpg`; }
+                return name && name.includes('.') ? name : defaultName(url, index);
+            } catch { return defaultName(url, index); }
         }
         try {
             const path = new URL(url).pathname;
             const name = path.split('/').pop().split('?')[0];
-            return name && name.includes('.') ? name : `image-${index + 1}.jpg`;
+            return name && name.includes('.') ? name : defaultName(url, index);
         } catch {
-            return `image-${index + 1}.jpg`;
+            return defaultName(url, index);
         }
     }
 
@@ -706,6 +1039,36 @@
 
     // Image extensions we recognise
     const IMG_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|tiff?|svg|avif|ico)$/i;
+    // Video extensions we recognise (whether it actually plays depends on the browser's codecs)
+    const VIDEO_EXTS = /\.(mp4|m4v|webm|ogv|mov|mkv|avi|wmv|flv|3gp|3g2|mpg|mpeg|mts|m2ts|divx|asf|f4v|vob)$/i;
+
+    // blob URL / detected URL → 'image' | 'video'
+    const knownKind = {};
+    function urlPath(u) { return u.split(/[?#]/)[0]; }
+    function hasKnownExt(u) { const p = urlPath(u); return IMG_EXTS.test(p) || VIDEO_EXTS.test(p); }
+    function mediaType(url) {
+        if (!url) return 'image';
+        if (knownKind[url]) return knownKind[url];
+        if (/^data:video\//i.test(url)) return 'video';
+        return VIDEO_EXTS.test(urlPath(url)) ? 'video' : 'image';
+    }
+    function isVideoFile(f) { return VIDEO_EXTS.test(f.name) || (/^video\//.test(f.type) && !/\.tsx?$/i.test(f.name)); }
+    function isMediaFile(f) { return IMG_EXTS.test(f.name) || isVideoFile(f) || /^image\//.test(f.type); }
+
+    function updateCountBadge() {
+        if (!currentImages.length) {
+            countBadge.textContent = '';
+            countBadge.classList.remove('visible');
+            return;
+        }
+        const v = currentImages.filter(u => mediaType(u) === 'video').length;
+        const i = currentImages.length - v;
+        const parts = [];
+        if (i) parts.push(`${i} image${i > 1 ? 's' : ''}`);
+        if (v) parts.push(`${v} video${v > 1 ? 's' : ''}`);
+        countBadge.textContent = parts.join(' · ');
+        countBadge.classList.add('visible');
+    }
 
     /**
      * Convert a raw pasted line into a usable src URL.
@@ -736,7 +1099,7 @@
             const fwd = line.replace(/\\/g, '/');
 
             // Folder path (no image extension at the end)?
-            if (!IMG_EXTS.test(fwd)) {
+            if (!IMG_EXTS.test(fwd) && !VIDEO_EXTS.test(fwd)) {
                 return { type: 'folder-path', raw: line };
             }
 
@@ -777,7 +1140,10 @@
             try {
                 const handles = await window.showOpenFilePicker({
                     multiple: true,
-                    types: [{ description: 'Images', accept: { 'image/*': ['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif','.tiff'] } }]
+                    types: [{ description: 'Images & Videos', accept: {
+                        'image/*': ['.jpg','.jpeg','.png','.gif','.webp','.bmp','.svg','.avif','.tiff'],
+                        'video/*': ['.mp4','.m4v','.webm','.ogv','.mov','.mkv','.avi','.wmv','.flv','.3gp','.mpg','.mpeg']
+                    } }]
                 });
                 const files = await Promise.all(handles.map(h => h.getFile()));
                 ingestFiles(files);
@@ -796,10 +1162,10 @@
                 for await (const entry of dirHandle.values()) {
                     if (entry.kind === 'file') {
                         const f = await entry.getFile();
-                        if (IMG_EXTS.test(f.name)) files.push(f);
+                        if (isMediaFile(f)) files.push(f);
                     }
                 }
-                if (files.length === 0) { showToast('No images found in that folder.'); return; }
+                if (files.length === 0) { showToast('No images or videos found in that folder.'); return; }
                 ingestFiles(files);
                 return;
             } catch(e) { if (e.name === 'AbortError') return; }
@@ -809,26 +1175,34 @@
     }
 
     function handleFileInputChange(event) {
-        const files = Array.from(event.target.files).filter(f => IMG_EXTS.test(f.name));
+        const files = Array.from(event.target.files).filter(isMediaFile);
         if (files.length) ingestFiles(files);
         event.target.value = ''; // reset so same folder can be re-picked
     }
 
     /** Convert File objects → blob URLs, append to textarea, then render */
     function ingestFiles(files) {
-        // Sort by name for consistent ordering
+        // Sort by name for consistent ordering (images and videos interleave naturally)
         files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
+        let nv = 0;
         const newLines = files.map(f => {
             const blobUrl = URL.createObjectURL(f);
             localFileNames[blobUrl] = f.name;   // save name for downloads
+            const isVid = isVideoFile(f);
+            knownKind[blobUrl] = isVid ? 'video' : 'image';
+            if (isVid) nv++;
             return blobUrl;
         });
 
         const existing = textarea.value.trim();
         textarea.value = existing ? existing + '\n' + newLines.join('\n') : newLines.join('\n');
         renderGallery();
-        showToast(`📂 Loaded ${files.length} image${files.length > 1 ? 's' : ''}`);
+        const ni = files.length - nv;
+        const bits = [];
+        if (ni) bits.push(`${ni} image${ni > 1 ? 's' : ''}`);
+        if (nv) bits.push(`${nv} video${nv > 1 ? 's' : ''}`);
+        showToast(`📂 Loaded ${bits.join(' + ')}`);
     }
 
     async function downloadImage(url, filename) {
@@ -934,12 +1308,12 @@
 
             // Few images → normal individual downloads
             if (total <= ZIP_THRESHOLD) {
-                showToast(`⬇ Downloading ${total} image${total > 1 ? 's' : ''}…`);
+                showToast(`⬇ Downloading ${total} item${total > 1 ? 's' : ''}…`);
                 for (let i = 0; i < total; i++) {
                     await downloadImage(currentImages[i], filenameFromUrl(currentImages[i], i));
                     await new Promise(r => setTimeout(r, 300));   // stagger so the browser doesn't block them
                 }
-                showToast(`✓ All ${total} images downloaded`);
+                showToast(`✓ All ${total} items downloaded`);
                 return;
             }
 
@@ -958,7 +1332,7 @@
                     failed++;
                 }
             }
-            if (!files.length) { showToast('✕ Could not read any images for the zip (blocked by CORS / local path?)'); return; }
+            if (!files.length) { showToast('✕ Could not read any files for the zip (blocked by CORS / local path?)'); return; }
 
             const d = new Date(), pad = n => String(n).padStart(2, '0');
             const zipName = `gallery-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.zip`;
@@ -968,14 +1342,86 @@
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 60000);
             showToast(failed
-                ? `✓ Zip downloaded — ${files.length} images (${failed} skipped, couldn't be fetched)`
-                : `✓ Zip downloaded — ${files.length} images`);
+                ? `✓ Zip downloaded — ${files.length} files (${failed} skipped, couldn't be fetched)`
+                : `✓ Zip downloaded — ${files.length} files`);
         } finally {
             dlAllBusy = false;
         }
     }
 
     // ─── Gallery Render ───────────────────────────────────────────────────────
+    function buildCard(card, url, index, res) {
+        const isVideo = res.kind === 'video';
+        const reveal = (el) => requestAnimationFrame(() => {
+            card.appendChild(el);
+            card.classList.add('loaded');
+        });
+        const setDuration = (d) => {
+            if (!isFinite(d) || d <= 0) return;
+            let badge = card.querySelector('.card-dur');
+            if (!badge) { badge = document.createElement('div'); badge.className = 'card-dur'; card.appendChild(badge); }
+            badge.textContent = fmtTime(d);
+        };
+        const placeholder = () => {
+            const ph = document.createElement('div');
+            ph.className = 'card-ph';
+            const ic = document.createElement('div'); ic.className = 'ph-icon'; ic.textContent = '🎬';
+            const nm = document.createElement('div'); nm.textContent = filenameFromUrl(url, index);
+            const note = document.createElement('div'); note.textContent = 'preview unavailable';
+            ph.append(ic, nm, note);
+            reveal(ph);
+        };
+
+        if (isVideo) card.classList.add('is-video');
+
+        if (res.src) {
+            const img = document.createElement('img');
+            img.src = res.src;
+            img.alt = '';
+            img.decoding = 'async';
+            img.onload = () => reveal(img);
+        } else if (isVideo && res.failed) {
+            placeholder();
+        } else if (isVideo) {
+            // no usable frame grab (e.g. cross-origin) — show the video's own first frame, muted
+            const v = document.createElement('video');
+            v.muted = true; v.preload = 'metadata'; v.playsInline = true;
+            v.onloadedmetadata = () => setDuration(v.duration);
+            v.onloadeddata = () => reveal(v);
+            v.onerror = () => placeholder();
+            v.src = url + (url.includes('#') || url.startsWith('blob:') ? '' : '#t=0.1');
+        }
+        if (isVideo) setDuration(res.duration);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'card-overlay';
+        const idxLabel = document.createElement('div');
+        idxLabel.className = 'card-index';
+        idxLabel.textContent = String(index + 1).padStart(2, '0');
+
+        // per-card download button
+        const dlBtn = document.createElement('button');
+        dlBtn.className = 'card-dl-btn';
+        dlBtn.title = isVideo ? 'Download video' : 'Download image';
+        dlBtn.innerHTML = '↓';
+        dlBtn.onclick = (e) => {
+            e.stopPropagation();
+            downloadImage(url, filenameFromUrl(url, index));
+            showToast(isVideo ? '⬇ Downloading video…' : '⬇ Downloading image…');
+        };
+
+        card.appendChild(overlay);
+        card.appendChild(idxLabel);
+        card.appendChild(dlBtn);
+
+        if (isVideo) {
+            const play = document.createElement('div');
+            play.className = 'card-play';
+            play.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            card.appendChild(play);
+        }
+    }
+
     function renderGallery() {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = '';
@@ -988,15 +1434,13 @@
         }
 
         if (currentImages.length === 0) {
-            gallery.innerHTML = '<div class="empty-state"><div class="icon">◻</div>Paste image URLs or local paths above — or use the 📂 / 📁 buttons to browse your PC</div>';
-            countBadge.textContent = '';
-            countBadge.classList.remove('visible');
+            gallery.innerHTML = '<div class="empty-state"><div class="icon">◻</div>Paste image / video URLs or local paths above — or use the 📂 / 📁 buttons to browse your PC</div>';
+            updateCountBadge();
             dlAllBtn.style.display = 'none';
             return;
         }
 
-        countBadge.textContent = currentImages.length + ' images';
-        countBadge.classList.add('visible');
+        updateCountBadge();
         dlAllBtn.style.display = 'inline-flex';
 
         // Build gallery cards with lazy IntersectionObserver
@@ -1008,38 +1452,9 @@
                 const index = parseInt(card.dataset.index);
                 obs.unobserve(card);
 
-                createThumbnail(url, (thumbSrc) => {
-                    if (!thumbSrc) { card.style.display = 'none'; return; }
-                    const img = document.createElement('img');
-                    img.src   = thumbSrc;
-                    img.alt   = '';
-                    img.decoding = 'async';
-                    img.onload = () => {
-                        requestAnimationFrame(() => {
-                            card.appendChild(img);
-                            card.classList.add('loaded');
-                        });
-                    };
-                    const overlay = document.createElement('div');
-                    overlay.className = 'card-overlay';
-                    const idxLabel = document.createElement('div');
-                    idxLabel.className = 'card-index';
-                    idxLabel.textContent = String(index + 1).padStart(2, '0');
-
-                    // per-card download button
-                    const dlBtn = document.createElement('button');
-                    dlBtn.className = 'card-dl-btn';
-                    dlBtn.title = 'Download image';
-                    dlBtn.innerHTML = '↓';
-                    dlBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        downloadImage(url, filenameFromUrl(url, index));
-                        showToast('⬇ Downloading image…');
-                    };
-
-                    card.appendChild(overlay);
-                    card.appendChild(idxLabel);
-                    card.appendChild(dlBtn);
+                createMediaThumbnail(url, (res) => {
+                    if (!res) { card.style.display = 'none'; return; }
+                    buildCard(card, url, index, res);
                 });
             });
         }, { rootMargin: '200px' });
@@ -1072,12 +1487,14 @@
     function closeLightbox() {
         clearTimeout(uiTimeout);
         uiLocked = false;
+        hoveredControl = false;
         hideControls();
+        releaseVideo();
         if (isFullscreen()) exitFullscreen();
         lightbox.classList.add('closing');
         setTimeout(() => {
             lightbox.style.display = 'none';
-            lightbox.classList.remove('closing');
+            lightbox.classList.remove('closing', 'is-video');
             document.body.style.overflow = 'auto';
             rotation = 0;               // fresh start next time the viewer opens
             preloadCache.clear();
@@ -1111,7 +1528,7 @@
         wanted.forEach(off => {
             const url = currentImages[((index + off) % n + n) % n];
             keep.add(url);
-            preloadImage(url);
+            if (mediaType(url) === 'image') preloadImage(url);   // videos are not preloaded
         });
         // free memory for anything outside the window
         for (const url of preloadCache.keys()) if (!keep.has(url)) preloadCache.delete(url);
@@ -1121,9 +1538,19 @@
         const url = currentImages[currentIndex];
         const token = ++switchToken;
         lbCounter.textContent = (currentIndex + 1) + ' / ' + currentImages.length;
+
+        // Video: load it paused (never autoplay) and show the player UI
+        if (mediaType(url) === 'video') {
+            loadVideo(url);
+            preloadAround(currentIndex, lastStep);
+            return;
+        }
+
+        releaseVideo();
         const im = preloadImage(url);
         const swap = () => {
             if (token !== switchToken) return;          // a newer navigation superseded this one
+            lightbox.classList.remove('is-video');
             lightboxImg.src = url;
             preloadAround(currentIndex, lastStep);
         };
@@ -1166,6 +1593,7 @@
     }
 
     function handleDoubleTap(e) {
+        if (isVideoActive()) return;      // no zoom for videos
         if (scale === 1) {
             // zoom towards the clicked point (works at any rotation)
             const r = imgContainer.getBoundingClientRect();
@@ -1197,6 +1625,7 @@
 
     function updateTransform() {
         lightboxImg.style.transform = `translate(${translateX}px,${translateY}px) scale(${scale}) rotate(${rotation}deg)`;
+        lbVideo.style.transform = `rotate(${rotation}deg)`;
     }
 
     // ─── Panning ──────────────────────────────────────────────────────────────
@@ -1223,7 +1652,13 @@
     }
 
     // ─── Lightbox mousemove → show controls ──────────────────────────────────
-    lightbox.addEventListener('mousemove', () => {
+    lightbox.addEventListener('mousemove', (e) => {
+        lastMouse = { x: e.clientX, y: e.clientY };
+        if (hoverSuppress) {
+            // ignore tiny trackpad jitter right after a pause
+            if (Math.hypot(e.clientX - hoverSuppress.x, e.clientY - hoverSuppress.y) < 6) return;
+            hoverSuppress = null;
+        }
         if (lightbox.style.display === 'flex' && !uiLocked) showControls();
     });
 
@@ -1262,6 +1697,28 @@
             }
         }
 
+        // ── Video mode: these keys control playback instead of zoom / pan ──
+        if (isVideoActive()) {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                if (!e.repeat) togglePlay('key');
+                return;
+            }
+            if ((e.key.toLowerCase() === 'm' || e.code === 'KeyM') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (!e.repeat) toggleMute();
+                return;
+            }
+            if (e.key === 'PageDown') { e.preventDefault(); seekBy(SEEK_STEP);  return; }
+            if (e.key === 'PageUp')   { e.preventDefault(); seekBy(-SEEK_STEP); return; }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); stepSpeed(1);  return; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); stepSpeed(-1); return; }
+            if (e.key === 'ArrowLeft')  { changeImage(-1); return; }
+            if (e.key === 'ArrowRight') { changeImage(1);  return; }
+            if (e.key === 'Escape' && !isFullscreen()) closeLightbox();
+            return;
+        }
+
         if (e.key === 'PageDown' || e.key === '+' || e.key === '=') {
             e.preventDefault();
             zoomSlider.value = Math.min(10, parseFloat(zoomSlider.value) + 0.5);
@@ -1290,7 +1747,7 @@
     let wheelLockUntil = 0;
     lightbox.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (e.ctrlKey || scale > 1) {
+        if (!isVideoActive() && (e.ctrlKey || scale > 1)) {
             const delta = e.deltaY > 0 ? -0.5 : 0.5;
             zoomSlider.value = Math.max(1, Math.min(10, parseFloat(zoomSlider.value) + delta));
             applyZoom();
@@ -1309,10 +1766,12 @@
         const odd = Math.abs(Math.round(rotation / 90)) % 2 === 1;
         const w = imgContainer.clientWidth, h = imgContainer.clientHeight;
         if (!w || !h) return;
-        if (instant) lightboxImg.classList.add('no-anim');
+        if (instant) { lightboxImg.classList.add('no-anim'); lbVideo.classList.add('no-anim'); }
         lightboxImg.style.width  = (odd ? h : w) + 'px';
         lightboxImg.style.height = (odd ? w : h) + 'px';
-        if (instant) { void lightboxImg.offsetWidth; lightboxImg.classList.remove('no-anim'); }
+        lbVideo.style.width  = (odd ? h : w) + 'px';
+        lbVideo.style.height = (odd ? w : h) + 'px';
+        if (instant) { void lightboxImg.offsetWidth; lightboxImg.classList.remove('no-anim'); lbVideo.classList.remove('no-anim'); }
     }
 
     function rotateImage() {
@@ -1349,14 +1808,183 @@
         if (lightbox.style.display === 'flex') layoutImage(true);
     });
 
+    // ─── Video player ─────────────────────────────────────────────────────────
+    function isVideoActive() {
+        return lightbox.style.display === 'flex' && mediaType(currentImages[currentIndex]) === 'video';
+    }
+
+    function loadVideo(url) {
+        releaseVideo();
+        lightbox.classList.add('is-video', 'v-paused', 'v-fresh');   // starts PAUSED, play-icon circle visible
+        vPlay.classList.remove('fade-out');
+        hoverSuppress = null; pauseSource = null;
+        lightbox.classList.remove('v-error');
+        speedIdx = DEFAULT_SPEED_IDX;
+        lbVideo.src = url;
+        lbVideo.defaultPlaybackRate = 1;
+        lbVideo.playbackRate = 1;
+        updateSpeedLabel();
+        updateProgress();
+    }
+
+    // Stop + free the video (also stops any download in progress)
+    function releaseVideo() {
+        cancelAnimationFrame(vRaf);
+        if (lbVideo.getAttribute('src') !== null) {
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+            lbVideo.load();
+        }
+        lightbox.classList.remove('v-paused', 'v-error', 'v-fresh');
+        vPlay.classList.remove('fade-out');
+        updateProgress();
+    }
+
+    function blurFocused() {
+        const a = document.activeElement;
+        if (a && a !== document.body && lightbox.contains(a)) a.blur();
+    }
+
+    function togglePlay(source) {
+        blurFocused();
+        if (!lbVideo.getAttribute('src') || lightbox.classList.contains('v-error')) return;
+        if (lbVideo.paused) {
+            hoverSuppress = null;
+            const p = lbVideo.play(); if (p && p.catch) p.catch(() => {});
+            showControls();
+        } else {
+            // pausing: no controls / seek bar / play-pause button afterwards (handled in the 'pause' event)
+            pauseSource = (source === 'key') ? 'key' : 'mouse';
+            lbVideo.pause();
+        }
+    }
+
+    function toggleMute() {
+        lbVideo.muted = !lbVideo.muted;
+        showToast(lbVideo.muted ? '🔇 Muted' : '🔊 Sound on');
+    }
+
+    function seekBy(sec) {
+        if (!lbVideo.getAttribute('src')) return;
+        const d = isFinite(lbVideo.duration) ? lbVideo.duration : Infinity;
+        lbVideo.currentTime = Math.max(0, Math.min(d, lbVideo.currentTime + sec));
+        updateProgress();
+        showControls();
+    }
+
+    function updateSpeedLabel() { vSpeed.textContent = 'Speed ' + SPEEDS[speedIdx] + 'x'; }
+
+    function stepSpeed(dir) {
+        speedIdx = Math.max(0, Math.min(SPEEDS.length - 1, speedIdx + dir));
+        lbVideo.playbackRate = SPEEDS[speedIdx];
+        updateSpeedLabel();
+        showControls();
+    }
+
+    function updateProgress() {
+        const d = lbVideo.duration, t = lbVideo.currentTime || 0;
+        const p = (isFinite(d) && d > 0) ? Math.min(100, t / d * 100) : 0;
+        vFill.style.width = p + '%';
+        vKnob.style.left = p + '%';
+        vCur.textContent = fmtTime(t);
+        vDur.textContent = fmtTime(isFinite(d) ? d : 0);
+    }
+
+    function vTick() {
+        updateProgress();
+        if (!lbVideo.paused && !lbVideo.ended) vRaf = requestAnimationFrame(vTick);
+    }
+
+    lbVideo.addEventListener('play', () => {
+        lightbox.classList.remove('v-paused', 'v-fresh');
+        vPlay.classList.remove('fade-out');
+        cancelAnimationFrame(vRaf);
+        vRaf = requestAnimationFrame(vTick);
+        showControls();
+    });
+    lbVideo.addEventListener('pause', () => {
+        if (isVideoActive()) lightbox.classList.add('v-paused');
+        cancelAnimationFrame(vRaf);
+        updateProgress();
+        const src = pauseSource; pauseSource = null;
+        if (!src || !isVideoActive() || lbVideo.ended) return;
+        // User paused: hide every control at once and keep them hidden until the pointer moves again
+        clearTimeout(uiTimeout);
+        hoveredControl = false;
+        hoverSuppress = { x: lastMouse.x, y: lastMouse.y };
+        hideControls();
+        if (src === 'mouse') {
+            // big play icon only fades away (no lingering button)
+            vPlay.classList.remove('fade-out');
+            void vPlay.offsetWidth;
+            vPlay.classList.add('fade-out');
+            setTimeout(() => vPlay.classList.remove('fade-out'), 800);
+        }
+    });
+    ['timeupdate', 'durationchange', 'seeked'].forEach(ev => lbVideo.addEventListener(ev, updateProgress));
+    lbVideo.addEventListener('loadedmetadata', () => {
+        updateProgress();
+        // nudge off 0 so the first frame is painted while paused
+        if (lbVideo.currentTime === 0 && lbVideo.paused) { try { lbVideo.currentTime = 0.001; } catch (e) {} }
+    });
+    lbVideo.addEventListener('error', () => {
+        if (!lbVideo.getAttribute('src')) return;
+        lightbox.classList.add('v-error');
+        showControls();
+    });
+    lbVideo.addEventListener('click', () => togglePlay('mouse'));   // click the picture = play / pause
+    vPlay.addEventListener('click', () => togglePlay('mouse'));     // the big play circle
+    vToggle.addEventListener('click', () => togglePlay('mouse'));
+    vFs.addEventListener('click', () => { blurFocused(); toggleFullscreen(); });
+    // keep bar buttons from stealing keyboard focus (so Space never "clicks" a focused button)
+    vBar.addEventListener('mousedown', (e) => { if (e.target.closest('.v-btn')) e.preventDefault(); });
+    vPlay.addEventListener('mousedown', (e) => e.preventDefault());
+
+    // Seek bar: click or drag
+    function scrubTo(e) {
+        const r = vTrack.getBoundingClientRect();
+        const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        if (isFinite(lbVideo.duration) && lbVideo.duration > 0) lbVideo.currentTime = p * lbVideo.duration;
+        updateProgress();
+    }
+    vSeek.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        scrubbing = true;
+        vSeek.classList.add('scrub');
+        vSeek.setPointerCapture(e.pointerId);
+        scrubTo(e);
+        e.preventDefault();
+    });
+    vSeek.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e); });
+    const endScrub = () => { scrubbing = false; vSeek.classList.remove('scrub'); };
+    vSeek.addEventListener('pointerup', endScrub);
+    vSeek.addEventListener('pointercancel', endScrub);
+
+    // Space must never also "click" a focused button after the keydown
+    document.addEventListener('keyup', (e) => {
+        if (lightbox.style.display === 'flex' && e.code === 'Space') e.preventDefault();
+    });
+
+    // Web link with no file extension that turned out to be a video → switch to the player
+    lightboxImg.addEventListener('error', () => {
+        if (lightbox.style.display !== 'flex') return;
+        const u = currentImages[currentIndex];
+        if (!u || lightboxImg.getAttribute('src') !== u) return;
+        if (/^https?:\/\//i.test(u) && !hasKnownExt(u) && !knownKind[u]) {
+            knownKind[u] = 'video';
+            updateCountBadge();
+            updateLightboxImage(false);
+            showControls();
+        }
+    });
+
     // ─── Clear ────────────────────────────────────────────────────────────────
     function clearAll() {
         textarea.value = '';
         document.getElementById('gallery').innerHTML = '';
         currentImages = [];
         preloadCache.clear();
-        countBadge.textContent = '';
-        countBadge.classList.remove('visible');
+        updateCountBadge();
         dlAllBtn.style.display = 'none';
     }
 </script>
