@@ -679,6 +679,10 @@
         #lightbox.fs .ic-enter { display: none; }
         #lightbox:not(.fs) .ic-exit { display: none; }
 
+        /* ── Auto-hide mouse cursor (after a few seconds of inactivity) ── */
+        #lightbox.hide-cursor,
+        #lightbox.hide-cursor * { cursor: none !important; }
+
         /* ── Animations ── */
         @keyframes slideDown {
             from { opacity: 0; transform: translateY(-14px); }
@@ -1483,10 +1487,12 @@
         updateLightboxImage(false);
         showControls();
         attachControlHoverListeners();
+        showCursor();
     }
 
     function closeLightbox() {
         clearTimeout(uiTimeout);
+        stopCursorTimer();
         uiLocked = false;
         hoveredControl = false;
         hideControls();
@@ -1652,9 +1658,33 @@
         if (scale > 1) imgContainer.style.cursor = 'grab';
     }
 
+    // ─── Auto-hide mouse cursor ───────────────────────────────────────────────
+    const CURSOR_HIDE_MS = 2000;     // hide the cursor after this much inactivity
+    let cursorTimer, lastCursorPos = { x: -1, y: -1 };
+
+    function showCursor() {
+        lightbox.classList.remove('hide-cursor');
+        clearTimeout(cursorTimer);
+        cursorTimer = setTimeout(() => {
+            // keep it visible while hovering a control, dragging the seek bar, or panning
+            if (hoveredControl || scrubbing || isPanning) { showCursor(); return; }
+            if (lightbox.style.display === 'flex') lightbox.classList.add('hide-cursor');
+        }, CURSOR_HIDE_MS);
+    }
+
+    function stopCursorTimer() {
+        clearTimeout(cursorTimer);
+        lightbox.classList.remove('hide-cursor');
+    }
+
     // ─── Lightbox mousemove → show controls ──────────────────────────────────
     lightbox.addEventListener('mousemove', (e) => {
         lastMouse = { x: e.clientX, y: e.clientY };
+        // reveal the cursor only on real movement (ignores tiny trackpad jitter)
+        if (Math.hypot(e.clientX - lastCursorPos.x, e.clientY - lastCursorPos.y) >= 3) {
+            lastCursorPos = { x: e.clientX, y: e.clientY };
+            showCursor();
+        }
         if (hoverSuppress) {
             // ignore tiny trackpad jitter right after a pause
             if (Math.hypot(e.clientX - hoverSuppress.x, e.clientY - hoverSuppress.y) < 6) return;
