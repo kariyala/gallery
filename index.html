@@ -680,6 +680,8 @@
         #lightbox:not(.fs) .ic-exit { display: none; }
 
         /* ── Auto-hide mouse cursor (after a few seconds of inactivity) ── */
+        html.cursor-hidden,
+        html.cursor-hidden *,
         #lightbox.hide-cursor,
         #lightbox.hide-cursor * { cursor: none !important; }
 
@@ -1659,32 +1661,58 @@
     }
 
     // ─── Auto-hide mouse cursor ───────────────────────────────────────────────
-    const CURSOR_HIDE_MS = 2000;     // hide the cursor after this much inactivity
-    let cursorTimer, lastCursorPos = { x: -1, y: -1 };
+    // The cursor hides 1 s after the pointer last MOVED (even if it sits on a button,
+    // the video, or you are holding a key to flick through photos). It comes back only
+    // when the mouse / trackpad really moves or a button is pressed.
+    const CURSOR_HIDE_MS = 1000;
+    let cursorTimer = 0, mouseDown = false;
+    let lastCursorPos = { x: null, y: null };
 
-    function showCursor() {
-        lightbox.classList.remove('hide-cursor');
+    function setCursorHidden(hidden) {
+        lightbox.classList.toggle('hide-cursor', hidden);
+        document.documentElement.classList.toggle('cursor-hidden', hidden);
+    }
+
+    function armCursorTimer() {
         clearTimeout(cursorTimer);
         cursorTimer = setTimeout(() => {
-            // keep it visible while hovering a control, dragging the seek bar, or panning
-            if (hoveredControl || scrubbing || isPanning) { showCursor(); return; }
-            if (lightbox.style.display === 'flex') lightbox.classList.add('hide-cursor');
+            if (lightbox.style.display !== 'flex') return;
+            if (mouseDown) { armCursorTimer(); return; }   // only while a button is physically held (drag / pan / scrub)
+            setCursorHidden(true);
         }, CURSOR_HIDE_MS);
+    }
+
+    function showCursor() {
+        setCursorHidden(false);
+        armCursorTimer();
     }
 
     function stopCursorTimer() {
         clearTimeout(cursorTimer);
-        lightbox.classList.remove('hide-cursor');
+        setCursorHidden(false);
     }
+
+    // Capture phase on the whole window: nothing inside the viewer can swallow it.
+    window.addEventListener('mousemove', (e) => {
+        // Browsers fire "fake" mousemove events (same position) when the content under the
+        // pointer changes — e.g. a new photo loads or controls fade. Ignore those.
+        const moved = e.clientX !== lastCursorPos.x || e.clientY !== lastCursorPos.y;
+        lastCursorPos = { x: e.clientX, y: e.clientY };
+        if (!moved || lightbox.style.display !== 'flex') return;
+        showCursor();
+    }, true);
+    window.addEventListener('mousedown', () => {
+        mouseDown = true;
+        if (lightbox.style.display === 'flex') showCursor();
+    }, true);
+    window.addEventListener('mouseup', () => {
+        mouseDown = false;
+        if (lightbox.style.display === 'flex') armCursorTimer();
+    }, true);
 
     // ─── Lightbox mousemove → show controls ──────────────────────────────────
     lightbox.addEventListener('mousemove', (e) => {
         lastMouse = { x: e.clientX, y: e.clientY };
-        // reveal the cursor only on real movement (ignores tiny trackpad jitter)
-        if (Math.hypot(e.clientX - lastCursorPos.x, e.clientY - lastCursorPos.y) >= 3) {
-            lastCursorPos = { x: e.clientX, y: e.clientY };
-            showCursor();
-        }
         if (hoverSuppress) {
             // ignore tiny trackpad jitter right after a pause
             if (Math.hypot(e.clientX - hoverSuppress.x, e.clientY - hoverSuppress.y) < 6) return;
@@ -1832,6 +1860,7 @@
         layoutImage(true);
         requestAnimationFrame(() => layoutImage(true));   // sizes settle a frame later
         if (!fs && lightbox.style.display === 'flex') showControls();
+        if (lightbox.style.display === 'flex') showCursor();   // hides again 1 s later
     }
     document.addEventListener('fullscreenchange', onFullscreenChange);
     document.addEventListener('webkitfullscreenchange', onFullscreenChange);
