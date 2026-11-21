@@ -718,8 +718,8 @@
 </div>
 
 <div class="input-panel">
-    <div class="panel-label">Paste image / video URLs or file paths (with or without quotes) — one per line</div>
-    <textarea id="urlInput" placeholder="https://example.com/image.jpg&#10;D:\Screenshots\Screenshot (14).png&#10;&quot;D:\Videos\clip.mp4&quot;"></textarea>
+    <div class="panel-label">Paste image / video URLs or local file / folder paths — one per line</div>
+    <textarea id="urlInput" placeholder="https://example.com/image.jpg&#10;https://example.com/video.mp4"></textarea>
     <div class="btn-row">
         <button class="btn btn-display" onclick="renderGallery()">Display</button>
         <button class="btn btn-clear" onclick="clearAll()">Clear</button>
@@ -1022,10 +1022,10 @@
         if (url.startsWith('blob:')) {
             return localFileNames[url] || defaultName(url, index);
         }
-        // file: local path
-        if (url.startsWith('file:')) {
+        // file:/// local path
+        if (url.startsWith('file:///')) {
             try {
-                const decoded = decodeURIComponent(url.replace(/^file:\/*/i, ''));
+                const decoded = decodeURIComponent(url.replace('file:///', '').replace(/\//g, '\\'));
                 const parts = decoded.split(/[/\\]/);
                 const name = parts.pop();
                 return name && name.includes('.') ? name : defaultName(url, index);
@@ -1033,7 +1033,7 @@
         }
         try {
             const path = new URL(url).pathname;
-            const name = decodeURIComponent(path.split('/').pop().split('?')[0]);
+            const name = path.split('/').pop().split('?')[0];
             return name && name.includes('.') ? name : defaultName(url, index);
         } catch {
             return defaultName(url, index);
@@ -1077,50 +1077,45 @@
         countBadge.classList.add('visible');
     }
 
-    /** Strip straight / smart quotes and whitespace from both ends */
-    function stripQuotes(s) {
-        return s.trim().replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, '').trim();
-    }
-
-    /** Encode a path for use inside a file: URL (handles spaces, #, ?, %, parentheses) */
-    function encodePathForUrl(fwdPath) {
-        return fwdPath.split('/').map((seg, i) => {
-            if (i === 0 && /^[A-Za-z]:$/.test(seg)) return seg;      // keep "D:" as is
-            return encodeURIComponent(seg).replace(/[()]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-        }).join('/');
-    }
-
     /**
      * Convert a raw pasted line into a usable src URL.
-     * Handles (with or without surrounding quotes):
-     *   - http / https / blob / data / file URLs → pass through
-     *   - Windows paths:  D:\Folder\img.jpg   or  D:/Folder/clip.mp4
+     * Handles:
+     *   - Already valid http/https/blob/data URLs → pass through
+     *   - Windows paths:  D:\Folder\img.jpg  or  "D:\Folder\img.jpg"
      *   - UNC paths:      \\server\share\img.jpg
      *   - Unix paths:     /home/user/img.jpg
      * Folder paths are flagged so we can warn the user (browsers can't open folders by path).
      */
     function resolveInputLine(raw) {
-        const line = stripQuotes(raw);
+        // Strip surrounding quotes
+        const line = raw.replace(/^["']+|["']+$/g, '').trim();
         if (!line) return null;
 
         // Already a usable URL
-        if (/^(https?|blob|data):\/\//i.test(line)) return line;
-        if (/^file:\/\//i.test(line)) return line.replace(/\\/g, '/');
+        if (/^(https?|blob|data|file):\/\//i.test(line)) return line;
 
-        const isWinPath  = /^[A-Za-z]:[/\\]/.test(line);     // D:\Folder\a.png  or  D:/Folder/a.png
-        const isUNC      = /^\\\\/.test(line);               // \\server\share\a.png
-        const isUnixPath = /^\//.test(line) && !isUNC;       // /home/user/a.png
+        // Windows absolute path  e.g.  C:\...  or  D:/...
+        const isWinPath = /^[A-Za-z]:[/\\]/.test(line);
+        // UNC path  \\server\share\...
+        const isUNC = /^\\\\/.test(line);
+        // Unix absolute path  /home/...
+        const isUnixPath = /^\//.test(line) && !isUNC;
 
         if (isWinPath || isUNC || isUnixPath) {
+            // Normalise backslashes → forward slashes
             const fwd = line.replace(/\\/g, '/');
 
-            // No image/video extension → it's a folder (browsers can't open folders by path)
+            // Folder path (no image extension at the end)?
             if (!IMG_EXTS.test(fwd) && !VIDEO_EXTS.test(fwd)) {
                 return { type: 'folder-path', raw: line };
             }
-            if (isWinPath) return 'file:///' + encodePathForUrl(fwd);
-            if (isUNC)     return 'file:' + encodePathForUrl(fwd);   // //server/share/... → file://server/share/...
-            return 'file://' + encodePathForUrl(fwd);                // /home/... → file:///home/...
+
+            // Single image file path → file:/// URL
+            // Windows:  C:/Photos/a.jpg  →  file:///C:/Photos/a.jpg
+            // UNC:      //server/share/a.jpg  →  file:////server/share/a.jpg (browser handles it)
+            // Unix:     /home/user/a.jpg  →  file:////home/user/a.jpg  (triple-slash + path)
+            if (isWinPath) return 'file:///' + encodeURI(fwd);
+            return 'file://' + encodeURI(fwd);    // unix / UNC already start with /
         }
 
         // Fallback — treat as relative URL / plain filename
@@ -1129,19 +1124,18 @@
 
     /** Parse all lines in the textarea into resolved URLs */
     function parseInputLines(raw) {
-        const urls = [], folderPaths = [];
-        const add = (piece) => {
-            const resolved = resolveInputLine(piece);
-            if (!resolved) return;
-            if (typeof resolved === 'object' && resolved.type === 'folder-path') folderPaths.push(resolved.raw);
-            else urls.push(resolved);
-        };
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        const urls = [];
+        const folderPaths = [];
 
-        raw.split('\n').forEach(line => {
-            // Several quoted paths on one line:  "D:\a.png" "D:\b.mp4"
-            const quoted = line.match(/"[^"]+"/g);
-            if (quoted && quoted.length > 1) quoted.forEach(add);
-            else add(line);
+        lines.forEach(line => {
+            const resolved = resolveInputLine(line);
+            if (!resolved) return;
+            if (typeof resolved === 'object' && resolved.type === 'folder-path') {
+                folderPaths.push(resolved.raw);
+            } else {
+                urls.push(resolved);
+            }
         });
         return { urls, folderPaths };
     }
@@ -1227,14 +1221,9 @@
             a.click();
             return;
         }
-        // file: URLs — can't fetch() them, so use a direct download link
-        if (url.startsWith('file:')) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+        // file:/// URLs: open in new tab (can't fetch() local files cross-origin)
+        if (url.startsWith('file:///')) {
+            window.open(url, '_blank');
             return;
         }
         try {
